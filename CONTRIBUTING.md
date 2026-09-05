@@ -50,6 +50,24 @@ Please keep new tests that way.
 
 ## Pull requests
 
+`main` is protected: changes land only through a pull request whose CI is green
+(Node 22 and 24), with every review conversation resolved, squash- or
+rebase-merged, no force-pushes. The flow:
+
+```bash
+gh repo fork gipsic/claude-usage --clone && cd claude-usage   # or Fork on GitHub
+git switch -c fix/whatever
+# ... change, add a test ...
+npm test
+git push -u origin fix/whatever
+gh pr create --fill                                            # or open the PR on GitHub
+```
+
+Your branch is deleted automatically after merge. Maintainers may push hotfixes
+to `main` directly; everyone else goes through a PR — including new maintainers,
+for the first while.
+
+
 - Keep the diff focused; one change per PR.
 - `npm test` must pass. Add a test when you fix a bug — the fixtures in `test/`
   make that easy.
