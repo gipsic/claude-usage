@@ -8,7 +8,7 @@ export const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 export const DEFAULTS = {
   port: 4778,
   host: '127.0.0.1',
-  pollSeconds: 300,           // >= 180s; the usage endpoint throttles faster clients
+  pollSeconds: 180,           // the endpoint's safe floor; faster gets throttled
   scanSeconds: 30,
   accounts: [
     { id: 'default', label: 'Default', configDir: path.join(os.homedir(), '.claude') },
@@ -63,7 +63,7 @@ export function loadConfig() {
         : (configDir === defaultDir ? desktopDefault : null),
     };
   });
-  cfg.pollSeconds = Math.max(180, Number(cfg.pollSeconds) || 300);
+  cfg.pollSeconds = Math.max(180, Number(cfg.pollSeconds) || 180);
   return cfg;
 }
 

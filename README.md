@@ -153,8 +153,8 @@ record them. Three sources are combined:
 
 2. **The OAuth endpoint.** `GET /api/oauth/usage` — what Claude Code's own
    `/usage` calls — adds exact reset times and any per-model weekly window. It
-   throttles hard, so it's polled every 5 minutes by default (never faster than
-   180s) with the required `User-Agent: claude-code/<version>`. It needs a CLI
+   throttles hard, so it's polled every 3 minutes by default (its safe floor;
+   faster gets throttled) with the required `User-Agent: claude-code/<version>`. It needs a CLI
    login; without one the desktop cache carries the whole feature.
 
    Its current shape returns a `limits` array (`session`, `weekly_all`, and
@@ -401,7 +401,7 @@ GET  /api/health
 {
   "port": 4778,
   "host": "127.0.0.1",
-  "pollSeconds": 300,        // usage endpoint; floored at 180
+  "pollSeconds": 180,        // usage endpoint; floored at 180
   "scanSeconds": 30,         // transcript rescan
   "accounts": [
     { "id": "default", "label": "Default", "configDir": "~/.claude" }

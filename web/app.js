@@ -96,6 +96,10 @@ function limitCard(s) {
   else meta.push(known
     ? `${fmtMoney(s.local.cost)} · ${fmtCompact(s.local.tokens)} tok`
     : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`);
+  if (s.snapshotAt) {
+    const age = Math.round((Date.now() - s.snapshotAt) / 1000);
+    meta.push(`<span class="muted" title="When Anthropic's number was last fetched. Polled every 3 minutes; Refresh polls now.">as of ${age < 90 ? age + 's' : Math.round(age / 60) + 'm'} ago</span>`);
+  }
   if (s.regimeChanged && s.capacityShift) {
     const up = s.capacityShift > 1;
     meta.push(`<span class="muted" title="Fitted capacity for the last 14 days differs from the 14 days before — a plan boost or change. Estimates use the recent value.">limit ${up ? '↑' : '↓'} ×${s.capacityShift.toFixed(1)} recently</span>`);
@@ -578,7 +582,7 @@ async function refreshAll({ hard = false } = {}) {
   busy = true;
   $('#refresh').setAttribute('aria-busy', 'true');
   try {
-    if (hard) await api('/api/refresh');
+    if (hard) await api('/api/refresh', { force: 1 });   // user asked: poll now, not when the timer says
     const sum = await api('/api/summary');
     S.data.summary = sum;
     renderLimits(sum);
