@@ -276,11 +276,11 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
   });
 
   const snapshots = (win) => db.prepare(
-    `SELECT ts, utilization AS u FROM limit_snapshots
+    `SELECT ts, utilization AS u, resets_at AS r FROM limit_snapshots
       WHERE account = ? AND window = ? AND ts >= ? AND ts <= ? AND utilization IS NOT NULL
       ORDER BY ts`
   ).all(account, win, Math.round(from), Math.round(now))
-   .map((r) => ({ t: Number(r.ts), u: r.u }));
+   .map((r) => ({ t: Number(r.ts), u: r.u, resetsAt: r.r == null ? null : Number(r.r) }));
 
   // --- weekly line: the recorded series, verbatim ------------------------
   const weekSnaps = snapshots('seven_day');

@@ -369,10 +369,27 @@ export function sessionHistoryChart(host, data, {
   svg.append(gBlocks);
 
   if (weekly.length > 1) {
-    svg.append(el('polyline', {
-      points: weekly.map((w) => `${X(w.t).toFixed(1)},${Y(w.u).toFixed(1)}`).join(' '),
-      class: 'weekly-line', fill: 'none',
-    }));
+    // Utilization only falls when the window resets. Draw that as it happened:
+    // straight down to zero at the reset instant, then a new climb - not a
+    // slope across the sampling gap, which would read as a gradual decline.
+    const segs = [[]];
+    for (let i = 0; i < weekly.length; i++) {
+      const w = weekly[i], prev = weekly[i - 1];
+      if (prev && w.u < prev.u - 2) {
+        const r = prev.resetsAt != null && prev.resetsAt > prev.t && prev.resetsAt <= w.t
+          ? prev.resetsAt : (prev.t + w.t) / 2;
+        segs[segs.length - 1].push({ t: r, u: prev.u }, { t: r, u: 0 });
+        segs.push([{ t: r, u: 0 }]);
+      }
+      segs[segs.length - 1].push(w);
+    }
+    for (const seg of segs) {
+      if (seg.length < 2) continue;
+      svg.append(el('polyline', {
+        points: seg.map((w) => `${X(w.t).toFixed(1)},${Y(w.u).toFixed(1)}`).join(' '),
+        class: 'weekly-line', fill: 'none',
+      }));
+    }
     const last = weekly[weekly.length - 1];
     svg.append(el('circle', { cx: X(last.t), cy: Y(last.u), r: 3.5, class: 'weekly-dot' }));
   }
