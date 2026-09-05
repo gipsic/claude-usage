@@ -1,0 +1,35 @@
+{
+  "name": "claude-usage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local usage + limit tracker and historical dashboard for Claude Code",
+  "bin": {
+    "claude-usage": "./claude-usage"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "pretest": "node test/fixtures/make-fixture.mjs",
+    "test": "node --no-warnings=ExperimentalWarning --test 'test/*.test.mjs'",
+    "start": "./claude-usage serve"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/gipsic/claude-usage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gipsic/claude-usage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gipsic/claude-usage/issues"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "usage",
+    "limits",
+    "dashboard",
+    "macos"
+  ]
+}

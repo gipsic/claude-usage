@@ -1,0 +1,63 @@
+#!/bin/sh
+# claude-usage - local usage + limit tracker and historical dashboard for Claude Code.
+# Thin launcher so the tool works from a PATH symlink, a launchd agent, or a .app
+# bundle - none of which inherit an interactive shell's PATH.
+set -e
+
+# Resolve this script through any symlinks to find the install root.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK=$(readlink "$SELF")
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *)  SELF="$(dirname "$SELF")/$LINK" ;;
+  esac
+done
+ROOT=$(cd "$(dirname "$SELF")" && pwd)
+
+major() { "$1" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0; }
+
+# Prefer whatever is on PATH, then the usual system installs, then the newest
+# version managed by nvm/fnm/volta - GUI launches see none of those by default.
+find_node() {
+  if command -v node >/dev/null 2>&1; then
+    N=$(command -v node)
+    [ "$(major "$N")" -ge 22 ] && { echo "$N"; return 0; }
+  fi
+  for C in /opt/homebrew/bin/node /usr/local/bin/node "$HOME/.volta/bin/node"; do
+    [ -x "$C" ] && [ "$(major "$C")" -ge 22 ] && { echo "$C"; return 0; }
+  done
+  for D in "$HOME/.nvm/versions/node" \
+           "$HOME/Library/Application Support/fnm/node-versions" \
+           "$HOME/.local/share/fnm/node-versions"; do
+    [ -d "$D" ] || continue
+    # Highest semver first; stop at the first one new enough.
+    for V in $(ls -1 "$D" 2>/dev/null | sed 's/^v//' \
+               | sort -t. -k1,1nr -k2,2nr -k3,3nr); do
+      for C in "$D/v$V/bin/node" "$D/v$V/installation/bin/node"; do
+        [ -x "$C" ] && [ "$(major "$C")" -ge 22 ] && { echo "$C"; return 0; }
+      done
+    done
+  done
+  return 1
+}
+
+NODE=$(find_node) || {
+  cat >&2 <<'EOF'
+claude-usage: needs Node.js 22 or newer.
+
+  brew install node          (or)  nvm install 22
+
+If node is installed through a version manager, make sure the version you want
+is >= 22 - this launcher picks the newest one it can find.
+EOF
+  exit 1
+}
+
+# Downstream tools (the launchd agent, the .app bundle, the menu-bar plugin) all
+# shell out to this script, so putting node on PATH here is enough for all of them.
+PATH="$(dirname "$NODE"):$PATH"
+export PATH
+
+# node:sqlite is unflagged from Node 24; on 22 it works but prints a notice.
+exec "$NODE" --no-warnings=ExperimentalWarning "$ROOT/src/main.mjs" "$@"

@@ -1,0 +1,29 @@
+// Every test gets its own data dir so nothing touches ~/.claude-usage.
+import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
+export const FIXTURE_CONFIG_DIR = new URL('./fixtures/', import.meta.url).pathname.replace(/\/$/, '');
+
+export function tempHome({ accounts } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-test-'));
+  process.env.CLAUDE_USAGE_HOME = dir;
+  process.env.CLAUDE_USAGE_NO_KEYCHAIN = '1';
+  process.env.CLAUDE_USAGE_DESKTOP_HISTORY = path.join(dir, 'no-desktop-cache.json');
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({
+    port: 0, pollSeconds: 300, scanSeconds: 30,
+    accounts: accounts || [{ id: 'default', label: 'Test', configDir: FIXTURE_CONFIG_DIR }],
+    alerts: { enabled: false },
+  }));
+  return dir;
+}
+
+/** Import project modules only after CLAUDE_USAGE_HOME is set. */
+export async function load() {
+  const base = new URL('../src/', import.meta.url).href;
+  const names = ['db', 'config', 'scanner', 'pricing', 'limits', 'oauth', 'analytics', 'server', 'desktop', 'accounts', 'weblogin'];
+  const mods = {};
+  for (const n of names) mods[n] = await import(`${base}${n}.mjs`);
+  return mods;
+}
+
+export function fetchJson(url) {
+  return fetch(url).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null), ct: r.headers.get('content-type') }));
+}

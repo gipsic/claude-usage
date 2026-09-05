@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Usage</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23d97757' stroke-width='5' stroke-dasharray='60 22' stroke-linecap='round' transform='rotate(-120 16 16)'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="var(--accent)" stroke-width="5"
+              stroke-dasharray="60 22" stroke-linecap="round" transform="rotate(-120 16 16)"/>
+    </svg>
+    <h1>Claude&nbsp;Usage</h1>
+  </div>
+
+  <div class="topbar-right">
+    <select id="account" class="select" aria-label="Active account"></select>
+    <button class="btn" id="open-accounts" title="Sign in, add or switch accounts">Accounts</button>
+    <a class="status-chip" id="svc-status" href="https://status.anthropic.com" target="_blank" rel="noreferrer">
+      <span class="dot"></span><span class="txt">status</span>
+    </a>
+    <button class="btn" id="refresh" title="Rescan transcripts and re-poll limits">Refresh</button>
+    <span class="stamp" id="stamp"></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Limit windows ─────────────────────────────────────────────── -->
+  <section class="panel" id="limits-panel">
+    <div class="panel-head">
+      <h2>Limits</h2>
+      <span class="hint" id="limits-source"></span>
+    </div>
+    <div class="gauges" id="gauges"></div>
+  </section>
+
+  <!-- ── Current session ───────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Current session</h2>
+      <span class="hint" id="session-hint"></span>
+    </div>
+    <div class="chart-host" id="chart-session"></div>
+    <div class="legend" id="legend-session"></div>
+  </section>
+
+  <!-- ── Usage history ─────────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Usage history</h2>
+      <div class="controls">
+        <div class="seg" id="metric-tabs">
+          <button data-metric="limit" class="on">% of limit</button>
+          <button data-metric="tokens">Tokens</button>
+          <button data-metric="cost">Cost</button>
+        </div>
+        <div class="seg" id="range-tabs" role="tablist">
+          <button data-range="12h">12h</button>
+          <button data-range="24h">24h</button>
+          <button data-range="3d">3d</button>
+          <button data-range="7d" class="on">7d</button>
+          <button data-range="30d">30d</button>
+          <button data-range="90d">90d</button>
+          <button data-range="all">All</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-host" id="chart-main"></div>
+    <div class="legend" id="legend-main"></div>
+    <div class="stat-row" id="range-stats"></div>
+  </section>
+
+  <!-- ── Activity grid ─────────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Daily activity</h2>
+      <div class="controls">
+        <span class="scale">
+          less
+          <i class="cell lvl0"></i><i class="cell lvl1"></i><i class="cell lvl2"></i>
+          <i class="cell lvl3"></i><i class="cell lvl4"></i><i class="cell lvl5"></i>
+          more
+        </span>
+      </div>
+    </div>
+    <div class="grid-host" id="activity"></div>
+  </section>
+
+  <!-- ── Session history ───────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Session history</h2>
+      <span class="hint">5-hour windows, newest first</span>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl" id="blocks-tbl">
+        <thead><tr>
+          <th>Window</th><th class="r">Duration</th><th class="r">Requests</th>
+          <th class="r">Tokens</th><th class="r">Cost</th><th>Models</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Breakdown ─────────────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Breakdown</h2>
+      <div class="seg" id="dim-tabs">
+        <button data-by="model" class="on">Model</button>
+        <button data-by="project">Project</button>
+        <button data-by="branch">Branch</button>
+        <button data-by="effort">Effort</button>
+        <button data-by="session">Session</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl" id="breakdown-tbl">
+        <thead><tr>
+          <th>Name</th><th class="r">Requests</th><th class="r">Input</th>
+          <th class="r">Output</th><th class="r">Cache read</th><th class="r">Tokens</th>
+          <th class="r">Cost</th><th class="share"></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Insights ──────────────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head"><h2>Insights</h2><span class="hint" id="insights-range"></span></div>
+    <div class="insight-grid" id="insight-stats"></div>
+    <h3 class="sub">Hour of day</h3>
+    <div class="hour-strip" id="hour-strip"></div>
+    <h3 class="sub">Day of week</h3>
+    <div class="dow" id="dow"></div>
+  </section>
+
+  <!-- ── Accounts ──────────────────────────────────────────────────── -->
+  <section class="panel" id="accounts-panel">
+    <div class="panel-head">
+      <h2>Accounts</h2>
+      <button class="btn" id="add-account">Add account</button>
+    </div>
+    <div class="account-list" id="account-list"></div>
+    <p class="hint acct-note">
+      Each account is a separate Claude Code config directory, so two logins never
+      overwrite each other. Signing in happens in your terminal — this page only reads
+      the resulting token to ask Anthropic for your limit percentages.
+    </p>
+  </section>
+
+  <!-- ── Alerts + footer ───────────────────────────────────────────── -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Alerts</h2>
+      <span class="hint">threshold, reset and burn-rate notifications already delivered</span>
+    </div>
+    <ul class="alerts" id="alerts"></ul>
+  </section>
+
+  <footer class="foot">
+    <div>
+      <a class="btn" id="export-csv" download>Export CSV</a>
+      <span class="hint">local API: <code id="api-base"></code></span>
+    </div>
+    <div class="hint" id="foot-note"></div>
+  </footer>
+
+</main>
+
+<dialog id="dlg" class="dlg">
+  <form method="dialog" class="dlg-body" id="dlg-body"></form>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
