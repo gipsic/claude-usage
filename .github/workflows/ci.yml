@@ -1,0 +1,23 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix: { node: [22, 24] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: ${{ matrix.node }} }
+      - run: node -v
+      - run: npm test
+      - name: smoke the CLI
+        run: |
+          ./claude-usage --version
+          CLAUDE_USAGE_HOME="$RUNNER_TEMP/cu" CLAUDE_USAGE_NO_KEYCHAIN=1 ./claude-usage doctor
+      - name: shell scripts parse
+        run: for f in claude-usage install.sh uninstall.sh bin/*.sh; do sh -n "$f"; done

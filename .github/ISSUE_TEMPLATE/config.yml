@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / idea
+    url: https://github.com/gipsic/claude-usage/discussions
+    about: Not sure it's a bug? Ask in Discussions.

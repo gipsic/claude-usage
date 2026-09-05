@@ -1,0 +1,27 @@
+name: "Wrong number: a limit, reset time or cost doesn't match"
+description: The most valuable report we get. Takes two minutes.
+labels: ["bug", "accuracy"]
+body:
+  - type: markdown
+    attributes:
+      value: Compare the dashboard with **Claude app → Settings → Usage** at the same moment. Neither output below contains secrets.
+  - type: input
+    id: plan
+    attributes: { label: Plan, placeholder: "Max 5x / Max 20x / Pro / Team" }
+    validations: { required: true }
+  - type: textarea
+    id: app
+    attributes: { label: What the Claude app shows, description: Screenshot of Settings → Usage, or type the numbers and "resets in" values. }
+    validations: { required: true }
+  - type: textarea
+    id: tool
+    attributes: { label: "Output of `claude-usage now`", render: text }
+    validations: { required: true }
+  - type: textarea
+    id: doctor
+    attributes: { label: "Output of `claude-usage doctor`", render: text, description: Shows which data sources and weighting were used. }
+    validations: { required: true }
+  - type: dropdown
+    id: signed
+    attributes: { label: Signed in via the dashboard (Accounts → Sign in)?, options: ["Yes", "No — using the desktop app cache only"] }
+    validations: { required: true }

@@ -4,6 +4,8 @@ Thanks for looking. This tool exists because a bunch of us wanted to see our
 Claude limits and history without leaving the Mac — and there's plenty left to
 do. Issues, questions, and pull requests are all welcome, from first-timers too.
 
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Ground rules
 
 - **Zero dependencies, Node 22+, macOS.** The whole point is `git clone` and

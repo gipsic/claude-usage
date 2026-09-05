@@ -1,0 +1,21 @@
+name: Bug report
+description: Something crashed, didn't render, or didn't install
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: Include the exact command or click, and the error text. }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What you expected }
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: "`sw_vers -productVersion`, `node -v`, `claude-usage --version`, and how you installed (curl | sh, git clone, ...)"
+      render: text
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes: { label: "Logs (`~/.claude-usage/logs/tracker.err.log`), if the daemon is involved", render: text }

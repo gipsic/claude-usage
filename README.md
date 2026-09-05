@@ -7,7 +7,13 @@ subscribers. It reads the transcripts Claude Code already writes, the Claude
 desktop app's own plan-usage cache, and (once you sign in) Anthropic's usage
 endpoint directly. Nothing leaves the machine.
 
-[ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Contributing](CONTRIBUTING.md) · MIT
+[![CI](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node 22+](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
+![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+[![Release](https://img.shields.io/github/v/release/gipsic/claude-usage)](https://github.com/gipsic/claude-usage/releases)
+
+[ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
 ## Install
 
@@ -62,6 +68,27 @@ Claude and a Mac, you can help — and you don't need to write code:
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). `npm test` runs 32 isolated tests
 in about three seconds. Pull requests of every size are welcome.
+
+## Project status & maintenance
+
+**Actively maintained** by [GIPSIC](https://github.com/gipsic). Every push and
+pull request runs the full test suite on Node 22 and 24 (see the CI badge above).
+
+- **Issues** are triaged within a week. Reports of a number that disagrees with the
+  Claude app get priority — use the *Wrong number* template.
+- **Pull requests** get a first review within two weeks; small, focused PRs land
+  fastest. Reviews are requested automatically via CODEOWNERS.
+- **Releases** follow semver and are tagged on GitHub with notes from
+  [CHANGELOG.md](CHANGELOG.md). Only `main` is supported.
+- **Security** problems go through
+  [private vulnerability reporting](https://github.com/gipsic/claude-usage/security/advisories/new),
+  never a public issue — see [SECURITY.md](SECURITY.md).
+- **Questions and show-and-tell** belong in
+  [Discussions](https://github.com/gipsic/claude-usage/discussions).
+
+Anthropic changes its usage API from time to time (the `limits` array appeared
+without notice); when a report shows the shape changed, that fix is treated as
+urgent.
 
 ---
 
