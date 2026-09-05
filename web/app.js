@@ -92,7 +92,8 @@ function limitCard(s) {
   if (s.utilPerHour != null && s.utilPerHour > 0.05) meta.push(`${s.utilPerHour.toFixed(1)}%/hr`);
   if (s.exhaustAt) meta.push(`<b class="danger">empty ~${soonAt(s.exhaustAt)}</b>`);
   else if (s.projectedUtilization != null && !s.rolling) meta.push(`${Math.round(s.projectedUtilization)}% projected`);
-  meta.push(known
+  if (s.apiOnly) meta.push('<span class="muted" title="Anthropic reports this scope directly; transcripts carry no per-scope breakdown.">reported by Anthropic</span>');
+  else meta.push(known
     ? `${fmtMoney(s.local.cost)} · ${fmtCompact(s.local.tokens)} tok`
     : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`);
   if (s.regimeChanged && s.capacityShift) {
@@ -120,11 +121,14 @@ function limitCard(s) {
 }
 
 function renderLimits(sum) {
-  const order = ['five_hour', 'seven_day', 'seven_day_opus', 'seven_day_sonnet'];
-  const cards = order
-    .map((k) => sum.windows[k])
-    .filter((s) => s && (s.utilization != null || s.local.events > 0))
-    .map(limitCard).join('');
+  // Session first, then the account-wide weekly window, then whatever scoped
+  // windows Anthropic reports for this plan (e.g. a per-model weekly limit).
+  // Nothing is hardcoded here, so a new scope appears the moment the API sends it.
+  const rank = (k) => (k === 'five_hour' ? 0 : k === 'seven_day' ? 1 : 2);
+  const cards = Object.entries(sum.windows)
+    .filter(([, s]) => s && (s.utilization != null || s.local.events > 0))
+    .sort(([a, sa], [b, sb]) => rank(a) - rank(b) || (sa.label || a).localeCompare(sb.label || b))
+    .map(([, s]) => limitCard(s)).join('');
   $('#gauges').innerHTML = cards || '<p class="hint">No usage recorded yet.</p>';
 
   const anyLive = Object.values(sum.windows).some((w) => w.source?.startsWith('api'));

@@ -83,8 +83,8 @@ function renderNow(rt, account) {
     lines.push(`  ${label} ${bar(s.utilization)} ${bold(u)}  ${tag}`);
     const bits = [s.rolling && s.resetsAt == null
       ? 'trailing 7 days'
-      : `resets ${clock(s.resetsAt)} (${dur(s.remainingMs)})`,
-      `${money(s.local.cost)} · ${compact(s.local.tokens)} tok`];
+      : `resets ${clock(s.resetsAt)} (${dur(s.remainingMs)})`];
+    if (!s.apiOnly) bits.push(`${money(s.local.cost)} · ${compact(s.local.tokens)} tok`);
     if (s.utilPerHour != null && s.utilPerHour > 0.05) bits.push(`burn ${s.utilPerHour.toFixed(1)}%/h`);
     if (s.exhaustAt) bits.push(red(`empty ~${clock(s.exhaustAt)}`));
     else if (s.projectedUtilization != null) bits.push(`proj ${Math.round(s.projectedUtilization)}% at reset`);
@@ -140,7 +140,7 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
   const mono = (size) => `font=SFMono-Regular size=${size}`;
   const at = (ts) => (ts ? new Date(ts).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 
-  const five = m.state.five_hour, week = m.state.seven_day, prem = m.state.seven_day_opus;
+  const five = m.state.five_hour, week = m.state.seven_day;
   const p5 = pct(five), pw = pct(week);
   L.push(`⏣ ${p5 == null ? '--' : p5 + '%'} · ${pw == null ? '--' : pw + '%'}` +
     tone(Math.max(p5 ?? 0, pw ?? 0)));
@@ -160,7 +160,10 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
   };
   section('Current session', five);
   section('Weekly limit', week);
-  section('Weekly premium', prem);
+  for (const [k, w] of Object.entries(m.state)) {
+    if (k === 'five_hour' || k === 'seven_day') continue;
+    section(w.label || k, w);
+  }
 
   L.push(`Open dashboard | href=${base} sfimage=chart.line.uptrend.xyaxis`);
   L.push('Refresh | refresh=true sfimage=arrow.clockwise');

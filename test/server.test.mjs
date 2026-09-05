@@ -68,3 +68,17 @@ test('login start reports the CLI command without needing a terminal in tests', 
   const r = await fetchJson(base + '/api/login');
   assert.ok('cliPath' in r.body);
 });
+
+test('a scoped weekly window reported by Anthropic surfaces as its own window', async () => {
+  rt.db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','seven_day_fable',6,?)")
+    .run(Date.now(), Date.now() + 3600e3);
+  const r = await fetchJson(base + '/api/summary');
+  const w = r.body.windows.seven_day_fable;
+  assert.ok(w, 'scoped window present');
+  assert.equal(w.label, 'Weekly Fable');
+  assert.equal(w.apiOnly, true);
+  assert.equal(w.utilization, 6);
+  // The dashboard must render whatever the API sends - no hardcoded window list.
+  const app = fs.readFileSync(new URL('../web/app.js', import.meta.url), 'utf8');
+  assert.ok(!/['"]seven_day_opus['"]/.test(app), 'web/app.js hardcodes legacy window keys');
+});
