@@ -22,7 +22,7 @@ do. Issues, questions, and pull requests are all welcome, from first-timers too.
 ```bash
 git clone https://github.com/gipsic/claude-usage
 cd claude-usage
-npm test                      # 31 tests, ~3 s, touches nothing outside a temp dir
+npm test                      # 32 tests, ~3 s, touches nothing outside a temp dir
 ./claude-usage serve --open   # run against your own transcripts
 ```
 

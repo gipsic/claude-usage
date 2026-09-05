@@ -60,7 +60,7 @@ Claude and a Mac, you can help — and you don't need to write code:
 - **Help pin down how limits are weighted.** We fit it from data; more accounts
   make the fit better.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). `npm test` runs 31 isolated tests
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). `npm test` runs 32 isolated tests
 in about three seconds. Pull requests of every size are welcome.
 
 ---
