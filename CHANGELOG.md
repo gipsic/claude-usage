@@ -7,6 +7,7 @@ All notable changes are recorded here. The format follows
 ## [Unreleased]
 
 ### Changed
+- LICENSE names the legal copyright holder.
 - Poll the usage endpoint every 3 minutes (was 5); the dashboard's Refresh button now polls immediately; limit cards show how old the fetched number is.
 
 ## [1.0.0] — 2026-09-06
