@@ -8,6 +8,9 @@
 # from - Desktop/Documents/Downloads are blocked by macOS), puts `claude-usage`
 # on PATH, starts the background tracker at login, builds Claude Usage.app, and
 # opens the dashboard. Re-running upgrades in place. Nothing needs sudo.
+#
+#   CLAUDE_USAGE_NO_SERVICE=1   download + first scan only: no launchd agent, no
+#                               .app, no PATH change (CLI-only use, or testing)
 set -e
 
 REPO_TARBALL="https://codeload.github.com/gipsic/claude-usage/tar.gz/refs/heads/main"
@@ -68,6 +71,15 @@ fi
 chmod +x "$DEST/claude-usage" "$DEST"/bin/*.sh "$DEST/install.sh" "$DEST/uninstall.sh" 2>/dev/null || true
 rm -rf "$DEST/test/fixtures/projects" "$DEST/.tmp" 2>/dev/null || true
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+
+if [ -n "$CLAUDE_USAGE_NO_SERVICE" ]; then
+  say "Scanning your Claude Code history"
+  "$DEST/claude-usage" scan | sed 's/^/  /'
+  say "Installed (no service)."
+  note "run:  $DEST/claude-usage serve --open"
+  note "later, for the background tracker + app:  $DEST/install.sh"
+  exit 0
+fi
 
 # --- PATH -----------------------------------------------------------------------
 say "Linking the command"

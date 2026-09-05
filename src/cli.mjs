@@ -88,6 +88,7 @@ function renderNow(rt, account) {
     if (s.utilPerHour != null && s.utilPerHour > 0.05) bits.push(`burn ${s.utilPerHour.toFixed(1)}%/h`);
     if (s.exhaustAt) bits.push(red(`empty ~${clock(s.exhaustAt)}`));
     else if (s.projectedUtilization != null) bits.push(`proj ${Math.round(s.projectedUtilization)}% at reset`);
+    if (s.regimeChanged && s.capacityShift) bits.push(yel(`limit ${s.capacityShift > 1 ? '↑' : '↓'}×${s.capacityShift.toFixed(1)} recently`));
     lines.push(dim(`                 ${bits.join('  ·  ')}`));
   }
   if (!Object.keys(cal).length) {
@@ -362,7 +363,12 @@ const COMMANDS = {
       console.log(`    calibration         ${cals ? grn(cals) : yel('none yet — run `claude-usage poll`')}`);
       const c0 = cal.five_hour || cal.seven_day;
       if (c0) {
-        console.log(`    weighting           ${bold(c0.scheme)} ${dim(`(${c0.method}, consistency ${c0.consistency?.toFixed(2) ?? '-'})`)}`);
+        console.log(`    weighting           ${bold(c0.scheme)} ${dim(`(${c0.method}, residual ${c0.consistency?.toFixed(2) ?? '-'}, last ${c0.window?.days ?? '?'}d)`)}`);
+        for (const [w, c] of Object.entries(cal)) {
+          if (c.regimeChanged && c.priorCapacity) {
+            console.log(`    capacity step       ${yel(`${w}: ×${(c.capacity / c.priorCapacity).toFixed(2)}`)} ${dim('vs the 14 days before — a boost or plan change; estimates use the recent value')}`);
+          }
+        }
         if (c0.coverage != null) {
           console.log(`    local coverage      ${Math.round(c0.coverage * 100)}%` +
             dim(`  of plan usage traces to Claude Code here`));

@@ -95,6 +95,10 @@ function limitCard(s) {
   meta.push(known
     ? `${fmtMoney(s.local.cost)} · ${fmtCompact(s.local.tokens)} tok`
     : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`);
+  if (s.regimeChanged && s.capacityShift) {
+    const up = s.capacityShift > 1;
+    meta.push(`<span class="muted" title="Fitted capacity for the last 14 days differs from the 14 days before — a plan boost or change. Estimates use the recent value.">limit ${up ? '↑' : '↓'} ×${s.capacityShift.toFixed(1)} recently</span>`);
+  }
 
   return `
     <article class="limit ${tone}">

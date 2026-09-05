@@ -221,15 +221,17 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
         // rise the local transcripts explain under the winning weighting. Well
         // under 1 means a real share of the plan was spent where this machine
         // cannot see.
+        // Measured per run, not per sample: a slow window (weekly) rises one
+        // integer point at a time, and scoring each tick against only the 15
+        // minutes before it understates what local usage explains. Whole-run
+        // totals average the rounding out, exactly as the fit above does.
         let observed = 0, explained = 0, offMachine = 0, segments = 0;
         for (const r of runs.filter((r) => r[0].ts >= recentFrom)) {
-          for (let i = 1; i < r.length; i++) {
-            const du = r[i].u - r[i - 1].u;
-            if (du < 1) continue;
-            const dw = windowUsage(db, win, r[i - 1].ts, r[i].ts, account, best.scheme).weight;
-            observed += du; explained += (dw / best.capacity) * 100; segments++;
-            if (dw <= 0) offMachine++;
-          }
+          const rise = r[r.length - 1].u - r[0].u;
+          if (rise < 1) continue;
+          const dw = windowUsage(db, win, r[0].ts, r[r.length - 1].ts, account, best.scheme).weight;
+          observed += rise; explained += (dw / best.capacity) * 100; segments++;
+          if (dw <= 0) offMachine++;
         }
         out[win] = {
           capacity: best.capacity,
@@ -456,6 +458,8 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
       window: win, label: def.label, apiOnly: !!def.apiOnly,
       start, resetsAt, resetSource, remainingMs, rolling, scheme,
       coverage: cal[win]?.coverage ?? null,
+      regimeChanged: cal[win]?.regimeChanged ?? false,
+      capacityShift: cal[win]?.priorCapacity ? cal[win].capacity / cal[win].priorCapacity : null,
       utilization, source, capacity,
       snapshotAt: snap?.ts ?? null, snapshotUtilization: snap?.utilization ?? null,
       local, burnPerHour, costPerHour, utilPerHour,
