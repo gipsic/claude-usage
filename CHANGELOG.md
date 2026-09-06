@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.0.3] — 2026-09-06
+
 ### Fixed
 - Threshold alerts now apply to per-model weekly windows (e.g. Fable) via a `seven_day_*` default; they were keyed to a `seven_day_opus` window that no longer exists.
 
@@ -45,7 +47,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/gipsic/claude-usage/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/gipsic/claude-usage/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/gipsic/claude-usage/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/gipsic/claude-usage/releases/tag/v1.0.0

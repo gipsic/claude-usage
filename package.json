@@ -1,6 +1,6 @@
 {
   "name": "@gipsic/claude-usage",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your Mac, from your own data.",
   "bin": {
