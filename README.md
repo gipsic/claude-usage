@@ -162,9 +162,10 @@ record them. Three sources are combined:
 
 2. **The OAuth endpoint.** `GET /api/oauth/usage` — what Claude Code's own
    `/usage` calls — adds exact reset times and any per-model weekly window. It
-   throttles hard, so it's polled every 3 minutes by default (its safe floor;
-   faster gets throttled) with the required `User-Agent: claude-code/<version>`. It needs a CLI
-   login; without one the desktop cache carries the whole feature.
+   is polled every 3 minutes with an honest `User-Agent: claude-usage/<version>`.
+   Anthropic throttles unrecognised clients harder than Claude Code itself, so
+   a poll may occasionally come back 429; the desktop-app cache fills the gap.
+   It needs a CLI login; without one the desktop cache carries the whole feature.
 
    Its current shape returns a `limits` array (`session`, `weekly_all`, and
    `weekly_scoped` entries carrying a model scope) alongside the older top-level
@@ -475,8 +476,10 @@ incidents. The server binds to `127.0.0.1`.
 - **Unofficial API.** Limit percentages come from the same endpoint Claude Code's
   own `/usage` command calls. It is undocumented, may change or disappear without
   notice, and the request is made with your own login token in the same way
-  Claude Code itself makes it, no more than once every three minutes. Use it with
-  the same care you'd apply to any tool that acts with your account.
+  Claude Code itself makes it, no more than once every three minutes, and the
+  tool identifies itself truthfully as `claude-usage` rather than posing as
+  Claude Code. Use it with the same care you'd apply to any tool that acts with
+  your account.
 - **Figures are estimates, not statements.** Dollar amounts are API-equivalent
   prices computed from Anthropic's public price list for comparison only — a
   subscription is not billed that way. Anything the tool infers rather than

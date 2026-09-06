@@ -4,6 +4,10 @@ import path from 'node:path';
 import os from 'node:os';
 
 export const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
+export const VERSION = (() => {
+  try { return JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version; }
+  catch { return '1.0.0'; }
+})();
 /** The endpoint buckets unknown clients into a very aggressive rate limit. */
 export const MIN_POLL_MS = 180_000;
 
@@ -177,7 +181,9 @@ export async function fetchUsage({ configDir, accountId, timeoutMs = 15_000 } = 
       headers: {
         Authorization: `Bearer ${cred.token}`,
         'anthropic-beta': 'oauth-2025-04-20',
-        'User-Agent': `claude-code/${clientVersion(configDir)}`,
+        // Identify honestly. The endpoint throttles unrecognised clients harder
+        // than Claude Code itself; the desktop-app cache covers any gap.
+        'User-Agent': `claude-usage/${VERSION} (+https://github.com/gipsic/claude-usage)`,
         'Content-Type': 'application/json',
       },
       signal: ac.signal,
