@@ -467,6 +467,25 @@ Everything stays on this machine. The only outbound requests are to
 `api.anthropic.com` for your own limit percentages and `status.anthropic.com` for
 incidents. The server binds to `127.0.0.1`.
 
+## Legal notes & disclaimer
+
+- **Not affiliated with, endorsed by, or supported by Anthropic.** "Claude" is a
+  trademark of Anthropic, PBC; it is used here only to describe what the tool
+  reads. This is an independent community project.
+- **Unofficial API.** Limit percentages come from the same endpoint Claude Code's
+  own `/usage` command calls. It is undocumented, may change or disappear without
+  notice, and the request is made with your own login token in the same way
+  Claude Code itself makes it, no more than once every three minutes. Use it with
+  the same care you'd apply to any tool that acts with your account.
+- **Figures are estimates, not statements.** Dollar amounts are API-equivalent
+  prices computed from Anthropic's public price list for comparison only — a
+  subscription is not billed that way. Anything the tool infers rather than
+  reads is labelled `estimated` or `inferred`.
+- **Your data stays yours.** Nothing is collected by the project; there is no
+  telemetry. See [SECURITY.md](SECURITY.md) for what leaves the machine.
+- Provided under the MIT License, **as is, without warranty** — see
+  [LICENSE](LICENSE).
+
 ## Requirements
 
 macOS with Node.js 22 or newer. No npm dependencies — the launcher finds Node
