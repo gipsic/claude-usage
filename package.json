@@ -2,9 +2,9 @@
   "name": "@gipsic/claude-usage",
   "version": "1.0.1",
   "type": "module",
-  "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your Mac, from your own data.",
+  "description": "See your Claude limits, exact reset times, burn rate and full usage history — on your Mac, from your own data.",
   "bin": {
-    "claude-usage": "./claude-usage"
+    "claude-usage": "claude-usage"
   },
   "engines": {
     "node": ">=22"
@@ -18,7 +18,7 @@
   "homepage": "https://github.com/gipsic/claude-usage",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gipsic/claude-usage.git"
+    "url": "git+https://github.com/gipsic/claude-usage.git"
   },
   "bugs": {
     "url": "https://github.com/gipsic/claude-usage/issues"
