@@ -6,6 +6,7 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-09-06
 ### Added
 - Published as `@gipsic/claude-usage` on npm (`npm i -g`).
 
@@ -36,5 +37,6 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/gipsic/claude-usage/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/gipsic/claude-usage/releases/tag/v1.0.0
