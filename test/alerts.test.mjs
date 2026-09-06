@@ -2,7 +2,10 @@ import { test } from 'node:test'; import assert from 'node:assert/strict';
 import { tempHome, load } from './helpers.mjs';
 tempHome();
 const { db: DB, alerts, config } = await load();
-const win = (extra) => ({ utilization: 85, resetsAt: Date.now() + 3600e3, remainingMs: 3600e3, local: { events: 1 }, ...extra });
+// One fixed reset instant: alerts are keyed per window *instance*, so a fresh
+// resetsAt on every call would (correctly) count as a new window.
+const RESETS_AT = Date.now() + 3600e3;
+const win = (extra) => ({ utilization: 85, resetsAt: RESETS_AT, remainingMs: 3600e3, local: { events: 1 }, ...extra });
 
 test('a scoped per-model window (Fable) gets threshold alerts from the seven_day_* default', () => {
   const db = DB.open(); db.exec('DELETE FROM alerts');

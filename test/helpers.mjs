@@ -18,7 +18,7 @@ export function tempHome({ accounts } = {}) {
 /** Import project modules only after CLAUDE_USAGE_HOME is set. */
 export async function load() {
   const base = new URL('../src/', import.meta.url).href;
-  const names = ['db', 'config', 'scanner', 'pricing', 'limits', 'oauth', 'analytics', 'server', 'desktop', 'accounts', 'weblogin'];
+  const names = ['db', 'config', 'scanner', 'pricing', 'limits', 'oauth', 'analytics', 'server', 'desktop', 'accounts', 'weblogin', 'alerts', 'notify', 'status'];
   const mods = {};
   for (const n of names) mods[n] = await import(`${base}${n}.mjs`);
   return mods;
