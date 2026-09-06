@@ -29,7 +29,13 @@ export function evaluate(db, state, cfg, { account = 'default', now = Date.now()
     const label = WINDOWS[win]?.label || win;
     const inst = `${account}:${win}:${s.resetsAt}`;
 
-    for (const t of a.thresholds?.[win] || []) {
+    // Per-model weekly windows are named by what the plan reports
+    // (seven_day_fable, ...), so they match the seven_day_* wildcard unless a
+    // specific entry exists.
+    const thresholds = a.thresholds?.[win]
+      ?? (win.startsWith('seven_day_') && win !== 'seven_day' ? a.thresholds?.['seven_day_*'] : undefined)
+      ?? [];
+    for (const t of thresholds) {
       if (s.utilization < t) continue;
       emit(`${inst}:threshold:${t}`, {
         window: win, kind: 'threshold', detail: `${pct(s.utilization)} of ${label}`,

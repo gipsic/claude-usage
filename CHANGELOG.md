@@ -6,6 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Threshold alerts now apply to per-model weekly windows (e.g. Fable) via a `seven_day_*` default; they were keyed to a `seven_day_opus` window that no longer exists.
+
 ## [1.0.2] — 2026-09-06
 
 ### Fixed

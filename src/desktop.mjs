@@ -14,8 +14,10 @@ import { HOUR, FIVE_H, SEVEN_D } from './limits.mjs';
 export const DESKTOP_HISTORY = path.join(
   os.homedir(), 'Library', 'Application Support', 'Claude', 'plan-usage-history.json');
 
-const WINDOW_OF = { fh: 'five_hour', sd: 'seven_day', sdo: 'seven_day_opus', sds: 'seven_day_sonnet' };
-const SPAN_OF = { five_hour: FIVE_H, seven_day: SEVEN_D, seven_day_opus: SEVEN_D, seven_day_sonnet: SEVEN_D };
+// Only the keys the desktop app is known to write. Scoped per-model windows
+// come from the API's limits array, not from here.
+const WINDOW_OF = { fh: 'five_hour', sd: 'seven_day' };
+const SPAN_OF = { five_hour: FIVE_H, seven_day: SEVEN_D };
 
 export function readDesktopHistory(file = DESKTOP_HISTORY) {
   let raw;

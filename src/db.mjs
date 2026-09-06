@@ -59,7 +59,7 @@ function migrate(db) {
     CREATE TABLE IF NOT EXISTS limit_snapshots (
       ts       INTEGER NOT NULL,
       account  TEXT NOT NULL DEFAULT 'default',
-      window   TEXT NOT NULL,        -- five_hour | seven_day | seven_day_opus | seven_day_sonnet
+      window   TEXT NOT NULL,        -- five_hour | seven_day | seven_day_<scope> as reported by the API
       utilization REAL,
       resets_at   INTEGER,
       PRIMARY KEY (ts, account, window)

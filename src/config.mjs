@@ -18,8 +18,7 @@ export const DEFAULTS = {
     thresholds: {
       five_hour: [50, 80, 95],
       seven_day: [50, 80, 95],
-      seven_day_opus: [80, 95],
-      seven_day_sonnet: [],
+      'seven_day_*': [80, 95],    // any per-model weekly window the plan reports (e.g. Fable)
     },
     resetReminderMinutes: [15],
     serviceStatus: true,

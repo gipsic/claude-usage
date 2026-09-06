@@ -104,8 +104,9 @@ urgent.
 
 ## What it tracks
 
-**Limit windows** — the 5-hour session window, the weekly window, and the weekly
-premium (Opus) window, each with utilization %, exact reset time and countdown,
+**Limit windows** — the 5-hour session window, the weekly window, and any
+per-model weekly window your plan reports (Fable on Max), each with utilization
+%, exact reset time and countdown,
 burn rate in %/hour, a projection of where you land at reset, and an estimated
 time-of-exhaustion when you're on pace to run out early.
 
@@ -127,7 +128,7 @@ Anthropic service incidents.
 
 | | |
 |---|---|
-| Session / weekly / Opus limits, % and burn rate | yes |
+| Session / weekly / per-model (Fable) limits, % and burn rate | yes |
 | 5h · 24h · 7d · 30d · 90d charts | yes, plus 12h · 3d · all |
 | GitHub-style activity grid | yes |
 | Current-session chart, session-history chart | yes |
@@ -269,7 +270,7 @@ the credential lands.
 > the one asking. Driving the real CLI keeps the consent screen honest.
 
 Signing in also replaces every inferred reset time with the exact one Anthropic
-reports, and unlocks the `seven_day_opus` / `seven_day_sonnet` windows that the
+reports, and unlocks the per-model weekly window (e.g. *Weekly Fable*) that the
 desktop cache doesn't carry.
 
 Manual routes, if you prefer:
@@ -422,8 +423,7 @@ GET  /api/health
     "thresholds": {
       "five_hour": [50, 80, 95],
       "seven_day": [50, 80, 95],
-      "seven_day_opus": [80, 95],
-      "seven_day_sonnet": []
+      "seven_day_*": [80, 95]    // any per-model weekly window (e.g. Fable)
     },
     "resetReminderMinutes": [15],
     "serviceStatus": true,
