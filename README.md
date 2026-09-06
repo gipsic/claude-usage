@@ -26,6 +26,15 @@ in `~/Applications/claude-usage`, adds `claude-usage` to your PATH, starts a
 background tracker at login, builds `Claude Usage.app`, and opens the dashboard
 at **http://127.0.0.1:4778**. Re-run it to upgrade. Nothing needs `sudo`.
 
+Or with npm (Node users), which also puts `claude-usage` on your PATH:
+
+```bash
+npm install -g @gipsic/claude-usage && claude-usage install-daemon
+```
+
+> Prefer `install -g` over `npx` for the background service: `npx` unpacks into a
+> cache that gets pruned, and the launchd agent would point at a vanished path.
+
 From a clone instead:
 
 ```bash

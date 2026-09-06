@@ -6,6 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Published as `@gipsic/claude-usage` on npm (`npm i -g`).
+
 ### Changed
 - LICENSE names the legal copyright holder.
 - Poll the usage endpoint every 3 minutes (was 5); the dashboard's Refresh button now polls immediately; limit cards show how old the fetched number is.

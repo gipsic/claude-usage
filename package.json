@@ -1,9 +1,8 @@
 {
-  "name": "claude-usage",
+  "name": "@gipsic/claude-usage",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
-  "description": "Local usage + limit tracker and historical dashboard for Claude Code",
+  "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your Mac, from your own data.",
   "bin": {
     "claude-usage": "./claude-usage"
   },
@@ -31,5 +30,23 @@
     "limits",
     "dashboard",
     "macos"
+  ],
+  "files": [
+    "claude-usage",
+    "src/",
+    "web/",
+    "bin/",
+    "install.sh",
+    "uninstall.sh",
+    "README.md",
+    "QUICKSTART.th.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin"
   ]
 }
