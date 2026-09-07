@@ -6,6 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- [ROADMAP.md](ROADMAP.md) — where native apps and store editions could go, and what the macOS sandbox rules out before any of it is worth building.
+
 ## [1.4.0] — 2026-09-07
 
 ### Added
