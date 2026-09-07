@@ -1,9 +1,11 @@
 // Every test gets its own data dir so nothing touches ~/.claude-usage.
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 // Every test process works on its own copy of the fixtures. Files run in
 // parallel, and scanner.test appends to a transcript to exercise incremental
 // scanning - on a shared directory that raced server.test's count (15 vs 16).
-const FIXTURE_SRC = new URL('./fixtures/', import.meta.url).pathname.replace(/\/$/, '');
+// fileURLToPath, not .pathname: the latter is /C:/... on Windows.
+const FIXTURE_SRC = fileURLToPath(new URL('./fixtures/', import.meta.url));
 export const FIXTURE_CONFIG_DIR = (() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-fixture-'));
   fs.cpSync(FIXTURE_SRC, dir, { recursive: true });
