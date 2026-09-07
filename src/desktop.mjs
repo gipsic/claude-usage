@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { HOUR, FIVE_H, SEVEN_D } from './limits.mjs';
+import { desktopHistoryPath } from './platform.mjs';
 
 /**
  * The Claude desktop app keeps its own rolling cache of plan utilization,
@@ -11,8 +12,7 @@ import { HOUR, FIVE_H, SEVEN_D } from './limits.mjs';
  * Reading it gives real, Anthropic-sourced percentages with no credential and
  * no network call — and a month of backfill the OAuth endpoint cannot provide.
  */
-export const DESKTOP_HISTORY = path.join(
-  os.homedir(), 'Library', 'Application Support', 'Claude', 'plan-usage-history.json');
+export const DESKTOP_HISTORY = desktopHistoryPath();
 
 // Only the keys the desktop app is known to write. Scoped per-model windows
 // come from the API's limits array, not from here.

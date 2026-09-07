@@ -6,9 +6,17 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-07
+
 ### Added
+- **Linux support.** Transcripts, costs, charts, alerts and the dashboard all work; the token is read from `~/.claude/.credentials.json`, the background tracker is a `systemd --user` service (`claude-usage install-daemon`), notifications go through `notify-send`, and browser sign-in opens whichever terminal emulator is installed. `install.sh` installs to `~/.local/share/claude-usage`. Two things do not exist on Linux and are reported as absent rather than guessed: the Claude desktop app's usage cache (so history starts at install time instead of being backfilled a month) and its token (so percentages go stale when the CLI token expires). CI now runs on Ubuntu as well as macOS.
 - macOS: when the Claude Code token has expired, usage is polled with the **Claude desktop app's own token** instead of going stale. It is read from the app's encrypted store (`oauth:tokenCacheV2` in its `config.json`, AES-128-CBC under the `Claude Safe Storage` keychain item), used only for the same read-only `/api/oauth/usage` call, and never refreshed, rewritten or uploaded — the app keeps it fresh itself. The first read asks for Keychain permission (*Always Allow*); every failure is reported by name (`keychain-timeout`, `keychain-no-item`, `decrypt-failed`, …) and simply falls back, never throwing inside the daemon.
 - `claude-usage doctor` reports the desktop-app token (readable, or the named reason) and when the active token expires.
+- README: a "what looks suspicious, and what it actually is" table — every outbound host, every shell-out and every credential read, in one place, so a scanner's alert can be checked against the facts.
+
+### Changed
+- Releases can be published from CI with **npm provenance** (`.github/workflows/release.yml`, manual dispatch), so the registry can verify the tarball was built from this repo at this commit.
+- The npm package ships only what a user runs: the two build helpers (`bin/build-binary.sh`, `bin/inline-web.mjs`) stay in the repository and are no longer in the tarball.
 
 ## [1.0.4] — 2026-09-07
 
@@ -63,7 +71,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/gipsic/claude-usage/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/gipsic/claude-usage/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/gipsic/claude-usage/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/gipsic/claude-usage/compare/v1.0.1...v1.0.2

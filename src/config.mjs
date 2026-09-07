@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { DATA_DIR } from './db.mjs';
+import { desktopHistoryPath } from './platform.mjs';
 
 export const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 
@@ -47,8 +48,7 @@ export function loadConfig() {
   try { user = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { /* defaults */ }
   const cfg = deepMerge(DEFAULTS, user);
   const defaultDir = path.join(os.homedir(), '.claude');
-  const desktopDefault = process.env.CLAUDE_USAGE_DESKTOP_HISTORY ??
-    path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'plan-usage-history.json');
+  const desktopDefault = process.env.CLAUDE_USAGE_DESKTOP_HISTORY ?? desktopHistoryPath();
   cfg.accounts = (cfg.accounts?.length ? cfg.accounts : DEFAULTS.accounts).map((a, i) => {
     const configDir = expand(a.configDir) || defaultDir;
     return {

@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { readToken, allKeychainTokens } from './oauth.mjs';
+import { IS_MAC, terminalLaunchers, hasDisplay } from './platform.mjs';
 
 /**
  * Browser sign-in, driven through Claude Code's own `claude auth login`.
@@ -31,6 +32,7 @@ export function findClaude() {
   const direct = [
     process.env.CLAUDE_CLI,
     path.join(home, '.claude', 'local', 'claude'),
+    path.join(home, '.local', 'bin', 'claude'),
     '/opt/homebrew/bin/claude',
     '/usr/local/bin/claude',
   ].filter(Boolean);
@@ -43,7 +45,8 @@ export function findClaude() {
     try { fs.accessSync(c, fs.constants.X_OK); return c; } catch { /* next */ }
   }
   for (const base of [path.join(home, '.nvm', 'versions', 'node'),
-                      path.join(home, 'Library', 'Application Support', 'fnm', 'node-versions')]) {
+                      path.join(home, 'Library', 'Application Support', 'fnm', 'node-versions'),
+                      path.join(home, '.local', 'share', 'fnm', 'node-versions')]) {
     let versions;
     try { versions = fs.readdirSync(base); } catch { continue; }
     versions.sort().reverse();
@@ -73,20 +76,22 @@ export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
 }
 
 /**
- * Launch the sign-in in a Terminal window.
+ * Launch the sign-in in a terminal window.
  *
- * A .command file opened with `open -a Terminal` gets a real tty and, unlike
- * AppleScript automation, needs no Automation permission prompt.
+ * macOS: a .command file opened with `open -a Terminal` gets a real tty and,
+ * unlike AppleScript automation, needs no Automation permission prompt.
+ * Linux: the same script handed to whichever terminal emulator is installed,
+ * spawned detached - `xterm -e` and friends do not return until the window is
+ * closed, so waiting on the child would hang the request.
  */
-function openInTerminal({ id, configDir, mode, accountId }) {
+export function signInScript({ file, configDir, mode, accountId } = {}) {
   const { argv, display, isDefault } = loginCommand({ configDir, mode });
   const selfBin = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'claude-usage');
-  const dir = path.join(DATA_HOME(), 'login');
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const file = path.join(dir, `signin-${id}.command`);
   const q = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
-  fs.writeFileSync(file, [
-    '#!/bin/zsh',
+  const cmd = argv.map(q).join(' ');
+  const capture = `${file}.capture`;
+  return [
+    IS_MAC ? '#!/bin/zsh' : '#!/bin/sh',
     '# Opened by claude-usage. Closes itself once sign-in finishes.',
     `: > ${q(file + '.started')}`,   // proof the window really opened
     `rm -f ${q(file)}`,              // no leftovers if the login is abandoned
@@ -101,26 +106,42 @@ function openInTerminal({ id, configDir, mode, accountId }) {
     // setup-token prints the token to the terminal. Run it under script(1) - which
     // works here because this IS a terminal - so the transcript lands in a 0600
     // capture file that claude-usage parses and then deletes. The token is never
-    // echoed anywhere else.
+    // echoed anywhere else. BSD script(1) takes the file first, util-linux takes -c.
     mode === 'setup-token'
-      ? `umask 077; /usr/bin/script -q ${q(file + '.capture')} ${argv.map(q).join(' ')}`
-      : `${argv.map(q).join(' ')}`,
+      ? (IS_MAC ? `umask 077; /usr/bin/script -q ${q(capture)} ${cmd}`
+                : `umask 077; script -q -c ${q(cmd)} ${q(capture)}`)
+      : cmd,
     'STATUS=$?',
     mode === 'setup-token'
-      ? `${q(selfBin)} accounts token ${q(accountId)} --from-file ${q(file + '.capture')} >/dev/null 2>&1 && echo "Token stored for claude-usage." || echo "Could not read a token from the output."; rm -f ${q(file + '.capture')}`
+      ? `${q(selfBin)} accounts token ${q(accountId)} --from-file ${q(capture)} >/dev/null 2>&1 && echo "Token stored for claude-usage." || echo "Could not read a token from the output."; rm -f ${q(capture)}`
       : '',
     'echo',
     'if [ $STATUS -eq 0 ]; then echo "Signed in."; else echo "Sign-in did not complete (exit $STATUS)."; fi',
     `rm -f ${q(file + '.started')}`,
-    'sleep 2',
     // Terminal keeps the window open on exit unless the profile says otherwise,
     // so close this one explicitly - matched by its own tty, so no other window
     // is touched. Needs Automation permission; if denied, the window just stays.
-    'MYTTY=$(tty)',
-    `osascript -e 'tell application "Terminal" to close (every window whose tty of selected tab is "'"$MYTTY"'")' >/dev/null 2>&1 || \\`,
-    '  echo "You can close this window."',
+    ...(IS_MAC ? [
+      'sleep 2',
+      'MYTTY=$(tty)',
+      `osascript -e 'tell application "Terminal" to close (every window whose tty of selected tab is "'"$MYTTY"'")' >/dev/null 2>&1 || \\`,
+      '  echo "You can close this window."',
+    ] : [
+      // Linux emulators differ on whether they keep a finished window around;
+      // waiting for Enter means the outcome is readable either way.
+      'echo',
+      'printf "You can close this window — press Enter. "',
+      'read IGNORED 2>/dev/null || sleep 5',
+    ]),
     'exit $STATUS',
-  ].filter(Boolean).join('\n') + '\n', { mode: 0o700 });
+  ].filter(Boolean).join('\n') + '\n';
+}
+
+function openInTerminal({ id, configDir, mode, accountId }) {
+  const dir = path.join(DATA_HOME(), 'login');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, `signin-${id}.${IS_MAC ? 'command' : 'sh'}`);
+  fs.writeFileSync(file, signInScript({ file, configDir, mode, accountId }), { mode: 0o700 });
   fs.chmodSync(file, 0o700);
 
   // A launchd agent is not attached to the Aqua session the way a login shell is.
@@ -134,6 +155,16 @@ function openInTerminal({ id, configDir, mode, accountId }) {
     execFile(cmd, args, { timeout: 15_000 }, (err, stdout, stderr) =>
       resolve({ spawned: !err, error: err ? String(stderr || err.message || err).trim() : null }));
   });
+  // A Linux emulator runs the script in the foreground of the process we start,
+  // so it is spawned detached and judged only by the marker.
+  const launch = (cmd, args) => new Promise((resolve) => {
+    let child;
+    try { child = spawn(cmd, args, { detached: true, stdio: 'ignore' }); }
+    catch (e) { return resolve({ spawned: false, error: String(e.message || e) }); }
+    child.once('error', (e) => resolve({ spawned: false, error: String(e.message || e) }));
+    child.unref();
+    setTimeout(() => resolve({ spawned: true, error: null }), 250);
+  });
   const started = async (ms) => {
     const until = Date.now() + ms;
     while (Date.now() < until) {
@@ -145,18 +176,25 @@ function openInTerminal({ id, configDir, mode, accountId }) {
 
   return (async () => {
     const uid = String(process.getuid?.() ?? '');
-    const tries = [
+    const tries = IS_MAC ? [
       ['/usr/bin/open', ['-a', 'Terminal', file]],
       ['/bin/launchctl', ['asuser', uid, '/usr/bin/open', '-a', 'Terminal', file]],
       ['/bin/launchctl', ['asuser', uid, '/usr/bin/osascript',
         '-e', `tell application "Terminal" to do script ${JSON.stringify(file)}`,
         '-e', 'tell application "Terminal" to activate']],
-    ];
+    ] : terminalLaunchers(file);
+
+    if (!tries.length) {
+      return { ok: false, file, error: hasDisplay()
+        ? 'no terminal emulator found (looked for x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, alacritty, kitty, foot, xterm)'
+        : 'no graphical session: DISPLAY and WAYLAND_DISPLAY are both unset' };
+    }
+
     const errors = [];
     for (const [cmd, args] of tries) {
-      const r = await run(cmd, args);
+      const r = IS_MAC ? await run(cmd, args) : await launch(cmd, args);
       if (!r.spawned) { errors.push(`${cmd}: ${r.error}`); continue; }
-      if (await started(3500)) return { ok: true, file, via: cmd };
+      if (await started(IS_MAC ? 3500 : 6000)) return { ok: true, file, via: cmd };
       errors.push(`${cmd}: exited cleanly but the window never opened`);
     }
     return { ok: false, file, error: errors.join(' | ') };
@@ -168,7 +206,23 @@ function DATA_HOME() {
 }
 
 /**
- * Start a sign-in: open the Terminal window, then watch for the credential.
+ * Every credential a fresh sign-in could land in, as name -> token.
+ *
+ * macOS keeps them in the keychain, one item per profile. Linux has no keychain
+ * in this path: Claude Code writes `<configDir>/.credentials.json` in plaintext,
+ * so the file is the whole snapshot - and an account that was not signed in at
+ * all shows up as a key appearing where there was none.
+ */
+function loginSnapshot({ configDir, accountId }) {
+  if (IS_MAC) {
+    return Object.fromEntries(Object.entries(allKeychainTokens()).map(([k, v]) => [k, v.token]));
+  }
+  const t = readToken({ configDir, accountId, fresh: true });
+  return t ? { [t.source]: t.token } : {};
+}
+
+/**
+ * Start a sign-in: open the terminal window, then watch for the credential.
  * Returns immediately; poll `status()`.
  */
 export async function start({ accountId = 'default', configDir, mode = 'claudeai' } = {}) {
@@ -181,17 +235,17 @@ export async function start({ accountId = 'default', configDir, mode = 'claudeai
   }
 
   const id = randomUUID();
-  // Snapshot every login in the keychain. A re-auth may write to a different
+  // Snapshot every login the platform stores. A re-auth may write to a different
   // entry than the one currently in use, so "did anything change anywhere"
   // is the reliable signal - not "did this one token change".
   const before = readToken({ configDir, accountId, fresh: true });
-  const beforeAll = allKeychainTokens();
+  const beforeAll = loginSnapshot({ configDir, accountId });
   const s = {
     id, accountId, configDir, cli, mode,
     status: 'running', startedAt: Date.now(), endedAt: null,
     command: loginCommand({ configDir, mode }).display,
     beforeToken: before?.token || null,
-    beforeAll: Object.fromEntries(Object.entries(beforeAll).map(([k, v]) => [k, v.token])),
+    beforeAll,
     error: null, terminalOpened: false,
   };
   sessions.set(id, s);
@@ -217,8 +271,8 @@ export async function start({ accountId = 'default', configDir, mode = 'claudeai
     const done = mode === 'setup-token'
       ? (() => { const t = readToken({ configDir: s.configDir, accountId: s.accountId, fresh: true });
                  return t?.source === 'saved' && t.token !== s.beforeToken; })()
-      : (() => { const now = allKeychainTokens();
-                 return Object.entries(now).some(([svc, c]) => c.token !== beforeAll[svc]?.token); })();
+      : (() => { const now = loginSnapshot({ configDir: s.configDir, accountId: s.accountId });
+                 return Object.entries(now).some(([k, tok]) => tok !== beforeAll[k]); })();
     if (done) {
       s.status = 'signed-in';
       s.endedAt = Date.now();

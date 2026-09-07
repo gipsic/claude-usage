@@ -13,6 +13,7 @@ import * as A from './analytics.mjs';
 import * as Acct from './accounts.mjs';
 import { readDesktopHistory, DESKTOP_HISTORY } from './desktop.mjs';
 import * as WebLogin from './weblogin.mjs';
+import { IS_MAC, openUrl } from './platform.mjs';
 
 const ROOT = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const ESC = '\u001b';
@@ -198,7 +199,7 @@ const COMMANDS = {
     const link = `http://${host}:${port}`;
     console.log(`${bold('claude-usage')} dashboard → ${blu(link)}`);
     console.log(dim(`  data ${DATA_DIR}   ·  scan every ${rt.cfg.scanSeconds}s  ·  limits every ${rt.cfg.pollSeconds}s`));
-    if (flags.open) execFile('open', [link], () => {});
+    if (flags.open) openUrl(link);
     process.on('SIGINT', () => { server.close(); process.exit(0); });
     return new Promise(() => {});
   },
@@ -479,7 +480,7 @@ const COMMANDS = {
         const st = WebLogin.status(r.id);
         for (const line of st.output.slice(shown)) console.log('  ' + dim(line));
         shown = st.output.length;
-        if (st.url && !opened) { opened = true; execFile('open', [st.url], () => {}); }
+        if (st.url && !opened) { opened = true; openUrl(st.url); }
         if (st.status !== 'running') {
           console.log('');
           if (st.status === 'signed-in') {
@@ -516,16 +517,19 @@ const COMMANDS = {
   config(rt, { rest }) {
     ensureConfig();
     if (rest[0] === 'path') return console.log(CONFIG_PATH);
-    if (rest[0] === 'edit') return execFileSync(process.env.EDITOR || 'open', [CONFIG_PATH], { stdio: 'inherit' });
+    if (rest[0] === 'edit') return execFileSync(process.env.EDITOR || (IS_MAC ? 'open' : 'xdg-open'), [CONFIG_PATH], { stdio: 'inherit' });
     console.log(JSON.stringify(rt.cfg, null, 2));
   },
 
+  // launchd on macOS, a systemd --user service on Linux; both start the tracker
+  // at login and restart it if it dies.
   'install-daemon'(rt, { flags }) {
-    execFileSync(path.join(ROOT, 'bin', 'install-daemon.sh'),
+    execFileSync(path.join(ROOT, 'bin', IS_MAC ? 'install-daemon.sh' : 'install-systemd.sh'),
       [String(flags.port || rt.cfg.port)], { stdio: 'inherit' });
   },
   'uninstall-daemon'() {
-    execFileSync(path.join(ROOT, 'bin', 'uninstall-daemon.sh'), { stdio: 'inherit' });
+    execFileSync(path.join(ROOT, 'bin', IS_MAC ? 'uninstall-daemon.sh' : 'uninstall-systemd.sh'),
+      { stdio: 'inherit' });
   },
 
   help() {
@@ -547,7 +551,7 @@ ${bold('claude-usage')} — usage, limit tracking and history for Claude Code
   ${bold('status')}                          Anthropic service status
   ${bold('doctor')}                          verify data sources and credentials
   ${bold('config')}  [path|edit]             show / edit configuration
-  ${bold('install-daemon')}                  run the tracker at login (launchd)
+  ${bold('install-daemon')}                  run the tracker at login (launchd / systemd --user)
   ${bold('uninstall-daemon')}
 
   Ranges: 5h 24h 7d 30d 90d 365d all
