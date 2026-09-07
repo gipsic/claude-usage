@@ -436,3 +436,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.limit.idle .limit-num { color: var(--text-faint); }
+.warn-note { color: var(--warn); font-weight: 600; }

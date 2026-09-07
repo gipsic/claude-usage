@@ -5,7 +5,7 @@ import url from 'node:url';
 import { open, setMeta, getMeta } from './db.mjs';
 import { loadConfig, saveConfig, CONFIG_PATH } from './config.mjs';
 import { scan } from './scanner.mjs';
-import { fetchUsage, recordUsage, MIN_POLL_MS } from './oauth.mjs';
+import { fetchUsage, recordUsage, readToken, MIN_POLL_MS } from './oauth.mjs';
 import { limitState, calibrate, loadCalibration, weightScheme, WINDOWS } from './limits.mjs';
 import { importDesktopHistory } from './desktop.mjs';
 import { serviceStatus } from './status.mjs';
@@ -198,6 +198,7 @@ export function createServer(rt) {
             lastScan: Number(getMeta(rt.db, 'lastScan', 0)),
             lastPoll: Number(getMeta(rt.db, 'lastPoll', 0)),
             pollResult: rt.poll.lastResult,
+            auth: authState(rt, account),
           });
         }
 
@@ -303,6 +304,14 @@ export function createServer(rt) {
       return json(res, { error: String(e.message || e) }, 500);
     }
   });
+}
+
+/** Whether the API source can work right now: a login exists and has not expired. */
+function authState(rt, account) {
+  const acct = rt.cfg.accounts.find((a) => a.id === account) || rt.cfg.accounts[0];
+  const tok = readToken({ configDir: acct?.configDir, accountId: acct?.id });
+  if (!tok) return { present: false, expired: false, expiresAt: null };
+  return { present: true, expired: !!(tok.expiresAt && tok.expiresAt < Date.now()), expiresAt: tok.expiresAt ?? null, source: tok.source };
 }
 
 function withHints(rt) {

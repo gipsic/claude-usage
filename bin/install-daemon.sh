@@ -66,7 +66,7 @@ cat > "$PLIST" <<PLIST
   <dict>
     <key>SuccessfulExit</key>     <false/>
   </dict>
-  <key>ThrottleInterval</key>     <integer>10</integer>
+  <key>ThrottleInterval</key>     <integer>60</integer>
   <key>ProcessType</key>          <string>Background</string>
   <key>LowPriorityIO</key>        <true/>
   <key>StandardOutPath</key>      <string>$DATA/logs/tracker.out.log</string>

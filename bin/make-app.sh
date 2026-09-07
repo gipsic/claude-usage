@@ -42,14 +42,18 @@ ROOT="$ROOT"
 PORT="$PORT"
 export PATH="$(dirname "$(command -v node)"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
 
-if ! curl -sf -o /dev/null "http://127.0.0.1:\$PORT/api/health" 2>/dev/null; then
-  "\$ROOT/claude-usage" serve --port "\$PORT" \\
-    >> "\${CLAUDE_USAGE_HOME:-\$HOME/.claude-usage}/logs/app.log" 2>&1 &
+up() { curl -sf -o /dev/null "http://127.0.0.1:\$PORT/api/health" 2>/dev/null; }
+if ! up; then
+  if launchctl print "gui/\$(id -u)/com.claude-usage.tracker" >/dev/null 2>&1; then
+    # The background service owns the server: poke it rather than starting a
+    # second copy that would fight it for the port.
+    launchctl kickstart "gui/\$(id -u)/com.claude-usage.tracker" 2>/dev/null || true
+  else
+    "\$ROOT/claude-usage" serve --port "\$PORT" \\
+      >> "\${CLAUDE_USAGE_HOME:-\$HOME/.claude-usage}/logs/app.log" 2>&1 &
+  fi
   # Give the listener a moment before handing the URL to the browser.
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    curl -sf -o /dev/null "http://127.0.0.1:\$PORT/api/health" && break
-    sleep 0.4
-  done
+  for i in \$(seq 1 25); do up && break; sleep 0.4; done
 fi
 open "http://127.0.0.1:\$PORT"
 LAUNCHER

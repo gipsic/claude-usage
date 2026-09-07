@@ -80,7 +80,12 @@ function renderNow(rt, account) {
       : s.source === 'api+local' ? grn('live+')
       : s.source === 'estimated' ? yel('est')
       : dim('--');
-    lines.push(`  ${label} ${bar(s.utilization)} ${bold(u)}  ${tag}`);
+    if (s.idle) {
+      lines.push(`  ${label} ${bar(0)} ${bold('   0%')}  ${dim('not started — opens with your next message')}`);
+      continue;
+    }
+    const staleTag = s.stale ? yel(`stale ${Math.round(s.snapshotAge / 60000)}m`) : tag;
+    lines.push(`  ${label} ${bar(s.utilization)} ${bold(u)}  ${staleTag}`);
     const bits = [s.rolling && s.resetsAt == null
       ? 'trailing 7 days'
       : `resets ${clock(s.resetsAt)} (${dur(s.remainingMs)})`];
@@ -178,7 +183,18 @@ const COMMANDS = {
     const host = flags.host || rt.cfg.host;
     const server = createServer(rt);
     startLoops(rt);
-    await new Promise((r) => server.listen(port, host, r));
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(port, host, resolve);
+    }).catch((e) => {
+      if (e.code !== 'EADDRINUSE') throw e;
+      // Another instance (or a stray one) already owns the port. Say so plainly
+      // instead of dying with a stack trace and letting launchd spin.
+      console.error(`claude-usage: port ${port} is already in use on ${host}.`);
+      console.error(`  another claude-usage may be running - check: lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+      console.error(`  or start this one elsewhere: claude-usage serve --port ${port + 1}`);
+      process.exit(75); // EX_TEMPFAIL: launchd will retry after ThrottleInterval
+    });
     const link = `http://${host}:${port}`;
     console.log(`${bold('claude-usage')} dashboard → ${blu(link)}`);
     console.log(dim(`  data ${DATA_DIR}   ·  scan every ${rt.cfg.scanSeconds}s  ·  limits every ${rt.cfg.pollSeconds}s`));

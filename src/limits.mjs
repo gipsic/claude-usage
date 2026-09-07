@@ -5,6 +5,8 @@ import { getMeta, setMeta } from './db.mjs';
 export const HOUR = 3600e3;
 export const FIVE_H = 5 * HOUR;
 export const SEVEN_D = 7 * 24 * HOUR;
+/** A real number older than this is shown as stale rather than live. */
+export const STALE_MS = 20 * 60e3;
 
 /** Window definitions matching the four windows the OAuth usage endpoint reports. */
 export const WINDOWS = {
@@ -427,8 +429,25 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
     const sinceSnap = snap && !def.apiOnly
       ? windowUsage(db, win, snap.ts, now, account, scheme, defs) : null;
 
+    // How old is the newest real number, and can it still describe *this* window?
+    const snapshotAge = snap ? now - snap.ts : null;
+    const stale = snapshotAge != null && snapshotAge > STALE_MS;
+    // A 5-hour snapshot older than the window itself belongs to a window that has
+    // certainly closed. With nothing sent since, there is no current window at
+    // all: 0%, and no reset time until the next message opens one.
+    // "Not started" needs evidence that a window ended - a past snapshot, or past
+    // transcripts with nothing in the last five hours. A machine with no data at
+    // all is unknown, not idle.
+    const everUsed = snap != null || !!db.prepare(
+      'SELECT 1 FROM events WHERE account = ? LIMIT 1').get(account);
+    const idle = def.span === FIVE_H && !def.apiOnly && everUsed &&
+      (snap ? snapshotAge > FIVE_H && !(sinceSnap?.events) : local.events === 0);
+
     let utilization = null, source = 'unavailable';
-    if (snap && capacity) {
+    if (idle) {
+      utilization = 0;
+      source = snap ? 'api' : 'local';
+    } else if (snap && capacity) {
       utilization = snap.utilization + (sinceSnap.weight / capacity) * 100;
       source = sinceSnap.weight > 0 ? 'api+local' : 'api';
     } else if (snap) {
@@ -441,8 +460,19 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
     if (utilization != null) utilization = Math.max(0, Math.min(999, utilization));
 
     if (def.apiOnly && resetsAt == null) { start = now - def.span; }
+    if (idle) { resetsAt = null; resetSource = null; }
     const elapsed = Math.max(1, now - start);
     const remainingMs = resetsAt == null ? null : Math.max(0, resetsAt - now);
+    // Burn/projection are meaningless for a window that has not started.
+    if (idle) {
+      state[win] = { window: win, label: def.label, apiOnly: !!def.apiOnly, start: null, resetsAt: null,
+        resetSource: null, remainingMs: null, rolling, scheme, idle: true, stale, snapshotAge,
+        utilization: 0, source, capacity, snapshotAt: snap?.ts ?? null,
+        snapshotUtilization: snap?.utilization ?? null, local, coverage: cal[win]?.coverage ?? null,
+        burnPerHour: 0, costPerHour: 0, utilPerHour: 0, projectedUtilization: 0, exhaustAt: null,
+        remainingWeight: capacity };
+      continue;
+    }
     const burnPerHour = (local.weight / elapsed) * HOUR;            // weight units/hour
     const costPerHour = (local.cost / elapsed) * HOUR;
     const utilPerHour = capacity ? (burnPerHour / capacity) * 100 : null;
@@ -456,7 +486,8 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
 
     state[win] = {
       window: win, label: def.label, apiOnly: !!def.apiOnly,
-      start, resetsAt, resetSource, remainingMs, rolling, scheme,
+      start: idle ? null : start, resetsAt, resetSource, remainingMs, rolling, scheme,
+      idle, stale, snapshotAge,
       coverage: cal[win]?.coverage ?? null,
       regimeChanged: cal[win]?.regimeChanged ?? false,
       capacityShift: cal[win]?.priorCapacity ? cal[win].capacity / cal[win].priorCapacity : null,

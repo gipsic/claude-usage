@@ -76,7 +76,21 @@ function limitCard(s) {
   const elapsed = s.resetsAt && s.start ? (Date.now() - s.start) / (s.resetsAt - s.start) : null;
   const pace = elapsed == null ? null : Math.max(0, Math.min(100, elapsed * 100));
 
-  const tag = s.source === 'api' ? '<span class="tag live">live</span>'
+  const ago = s.snapshotAge == null ? '' : s.snapshotAge < 90e3 ? `${Math.round(s.snapshotAge / 1000)}s` : s.snapshotAge < 5400e3 ? `${Math.round(s.snapshotAge / 60000)}m` : `${(s.snapshotAge / 3600e3).toFixed(1)}h`;
+  if (s.idle) {
+    return `
+    <article class="limit idle">
+      <header><span class="limit-name">${esc(s.label)}</span>
+        <span class="tag ${s.stale ? 'est' : 'live'}">${s.stale ? `stale · ${ago} ago` : 'live'}</span></header>
+      <div class="limit-num">0<small>%</small></div>
+      <div class="track"><div class="fill" style="width:0"></div></div>
+      <div class="limit-reset">Not started <span class="muted">— a 5-hour window opens with your next message</span></div>
+      <div class="limit-meta">${s.snapshotAt ? `<span class="muted">last window ended · confirmed ${ago} ago</span>` : '<span class="muted">no activity in the last 5 hours</span>'}</div>
+    </article>`;
+  }
+  const tag = s.stale
+    ? `<span class="tag est" title="The newest real number is older than 20 minutes. If the token has expired, Claude Code refreshes it when you use it — or press Re-auth in Accounts.">stale · ${ago} ago</span>`
+    : s.source === 'api' ? '<span class="tag live">live</span>'
     : s.source === 'api+local' ? '<span class="tag live">live +&nbsp;local</span>'
     : s.source === 'estimated' ? '<span class="tag est">estimated</span>'
     : '<span class="tag">uncalibrated</span>';
@@ -138,7 +152,13 @@ function renderLimits(sum) {
   const anyLive = Object.values(sum.windows).some((w) => w.source?.startsWith('api'));
   const cov = sum.windows.five_hour?.coverage ?? sum.windows.seven_day?.coverage ?? null;
   const scheme = sum.windows.five_hour?.scheme;
-  if (!anyLive) {
+  const auth = sum.auth || {};
+  if (auth.present && auth.expired) {
+    $('#limits-source').innerHTML =
+      `<span class="warn-note">Your sign-in token expired at ${new Date(auth.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</span> ` +
+      `Claude Code refreshes it the next time you use it, or press <b>Re-auth</b> in Accounts. ` +
+      `Until then, numbers come from the Claude desktop app's cache (updated every 15 min while it is open); the per-model window cannot update.`;
+  } else if (!anyLive) {
     $('#limits-source').innerHTML =
       'Not calibrated yet — run <code>claude-usage poll</code> while you work so percentages come from Anthropic instead of local estimates.';
   } else {
