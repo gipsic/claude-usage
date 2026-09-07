@@ -1,34 +1,47 @@
 #!/bin/sh
-# claude-usage installer for macOS.
+# claude-usage installer for macOS and Linux.
 #
 #   From a checkout:   ./install.sh
 #   One-liner:         curl -fsSL https://raw.githubusercontent.com/gipsic/claude-usage/main/install.sh | sh
 #
-# Installs to ~/Applications/claude-usage (a folder launchd is allowed to run
-# from - Desktop/Documents/Downloads are blocked by macOS), puts `claude-usage`
-# on PATH, starts the background tracker at login, builds Claude Usage.app, and
-# opens the dashboard. Re-running upgrades in place. Nothing needs sudo.
+# macOS: installs to ~/Applications/claude-usage (a folder launchd is allowed to
+# run from - Desktop/Documents/Downloads are blocked by macOS), starts a launchd
+# agent and builds Claude Usage.app.
+# Linux: installs to ~/.local/share/claude-usage and starts a systemd --user
+# service. There is no menu-bar app and no desktop usage cache, so percentages
+# come from the API alone.
+# Both put `claude-usage` on PATH and open the dashboard. Re-running upgrades in
+# place. Nothing needs sudo.
 #
-#   CLAUDE_USAGE_NO_SERVICE=1   download + first scan only: no launchd agent, no
+#   CLAUDE_USAGE_NO_SERVICE=1   download + first scan only: no service, no
 #                               .app, no PATH change (CLI-only use, or testing)
 set -e
 
+OS=$(uname -s)
 REPO_TARBALL="https://codeload.github.com/gipsic/claude-usage/tar.gz/refs/heads/main"
-DEST="${CLAUDE_USAGE_INSTALL_DIR:-$HOME/Applications/claude-usage}"
+case "$OS" in
+  Darwin) DEFAULT_DEST="$HOME/Applications/claude-usage" ;;
+  Linux)  DEFAULT_DEST="${XDG_DATA_HOME:-$HOME/.local/share}/claude-usage" ;;
+esac
+DEST="${CLAUDE_USAGE_INSTALL_DIR:-$DEFAULT_DEST}"
 PORT="${CLAUDE_USAGE_PORT:-4778}"
 
 say()  { printf '\033[1m%s\033[0m\n' "$*"; }
 note() { printf '  %s\n' "$*"; }
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[ "$(uname -s)" = "Darwin" ] || die "this installer is for macOS (Linux/Windows help wanted: see CONTRIBUTING.md)"
+case "$OS" in
+  Darwin|Linux) ;;
+  *) die "unsupported platform: $OS (macOS and Linux only; Windows help wanted: see CONTRIBUTING.md)" ;;
+esac
 
 # --- node 22+ -----------------------------------------------------------------
 find_node() {
   for C in "$(command -v node 2>/dev/null)" /opt/homebrew/bin/node /usr/local/bin/node "$HOME/.volta/bin/node"; do
     [ -n "$C" ] && [ -x "$C" ] && [ "$("$C" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)" -ge 22 ] && { echo "$C"; return; }
   done
-  for D in "$HOME/.nvm/versions/node" "$HOME/Library/Application Support/fnm/node-versions"; do
+  for D in "$HOME/.nvm/versions/node" "$HOME/Library/Application Support/fnm/node-versions" \
+           "$HOME/.local/share/fnm/node-versions"; do
     [ -d "$D" ] || continue
     for V in $(ls -1 "$D" 2>/dev/null | sed 's/^v//' | sort -t. -k1,1nr -k2,2nr -k3,3nr); do
       for C in "$D/v$V/bin/node" "$D/v$V/installation/bin/node"; do
@@ -40,12 +53,15 @@ find_node() {
 NODE=$(find_node)
 if [ -z "$NODE" ]; then
   say "Node.js 22 or newer is required."
-  if command -v brew >/dev/null 2>&1; then
+  if [ "$OS" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
     note "Installing with Homebrew (brew install node)…"
     brew install node
     NODE=$(find_node) || die "node still not found after brew install"
-  else
+  elif [ "$OS" = "Darwin" ]; then
     die "install Node from https://nodejs.org (or: brew install node) and re-run"
+  else
+    # Distro packages are often older than 22; nvm/fnm is the reliable route.
+    die "install Node 22+ (https://nodejs.org, or: curl -fsSL https://fnm.vercel.app/install | bash) and re-run"
   fi
 fi
 note "node: $NODE ($("$NODE" -v))"
@@ -70,7 +86,7 @@ else
 fi
 chmod +x "$DEST/claude-usage" "$DEST"/bin/*.sh "$DEST/install.sh" "$DEST/uninstall.sh" 2>/dev/null || true
 rm -rf "$DEST/test/fixtures/projects" "$DEST/.tmp" 2>/dev/null || true
-xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+[ "$OS" = "Darwin" ] && xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 
 if [ -n "$CLAUDE_USAGE_NO_SERVICE" ]; then
   say "Scanning your Claude Code history"
@@ -97,21 +113,32 @@ esac
 say "Scanning your Claude Code history"
 "$DEST/claude-usage" scan | sed 's/^/  /'
 say "Installing the background tracker (starts at login)"
-"$DEST/claude-usage" install-daemon --port "$PORT" | grep -E "dashboard|status|Installed" | sed 's/^/  /'
-say "Building Claude Usage.app"
-sh "$DEST/bin/make-app.sh" "$HOME/Applications" "$PORT" >/dev/null && note "$HOME/Applications/Claude Usage.app"
+"$DEST/claude-usage" install-daemon --port "$PORT" | grep -E "dashboard|status|Installed|linger|enable-linger" | sed 's/^/  /'
+if [ "$OS" = "Darwin" ]; then
+  say "Building Claude Usage.app"
+  sh "$DEST/bin/make-app.sh" "$HOME/Applications" "$PORT" >/dev/null && note "$HOME/Applications/Claude Usage.app"
+fi
+
+if [ "$OS" = "Darwin" ]; then
+  PLATFORM_NOTES="    • If macOS asks whether node may access \"Claude Code-credentials\" or \"Claude Safe Storage\", choose Always Allow.
+    • Menu bar: install SwiftBar (swiftbar.app), then
+        ln -s \"$DEST/bin/claude-usage.1m.sh\" ~/Library/Application\\ Support/SwiftBar/"
+  OPENER=open
+else
+  PLATFORM_NOTES="    • Percentages come from the API here: the desktop app's usage cache is macOS-only.
+    • Logs: journalctl --user -u claude-usage.service -f"
+  OPENER=xdg-open
+fi
 
 cat <<MSG
 
 $(say "Done.")  Dashboard: http://127.0.0.1:$PORT
 
   Next:
-    • If macOS asks whether node may access "Claude Code-credentials", choose Always Allow.
+$PLATFORM_NOTES
     • For exact limit percentages and reset times, open the dashboard → Accounts → Sign in with browser
       (or run: claude-usage login --web)
-    • Menu bar: install SwiftBar (swiftbar.app), then
-        ln -s "$DEST/bin/claude-usage.1m.sh" ~/Library/Application\ Support/SwiftBar/
     • Check everything:  claude-usage doctor        Uninstall:  $DEST/uninstall.sh
 
 MSG
-"$NODE" -e "require('child_process').execFile('open',['http://127.0.0.1:$PORT'])" 2>/dev/null || true
+"$NODE" -e "require('child_process').execFile(process.argv[1],['http://127.0.0.1:$PORT'])" "$OPENER" 2>/dev/null || true

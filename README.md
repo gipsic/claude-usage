@@ -1,6 +1,6 @@
 # claude-usage
 
-**See your Claude limits, exact reset times, burn rate and full usage history — on your Mac, from your own data.**
+**See your Claude limits, exact reset times, burn rate and full usage history — on your own machine, from your own data.**
 
 A zero-dependency shell tool + local web dashboard for Claude Code / Claude Max
 subscribers. It reads the transcripts Claude Code already writes, the Claude
@@ -10,7 +10,7 @@ endpoint directly. Nothing leaves the machine.
 [![CI](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node 22+](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
-![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+![macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 [![npm](https://img.shields.io/npm/v/%40gipsic%2Fclaude-usage?label=npm)](https://www.npmjs.com/package/@gipsic/claude-usage)
 [![Release](https://img.shields.io/github/v/release/gipsic/claude-usage)](https://github.com/gipsic/claude-usage/releases)
 
@@ -22,10 +22,12 @@ endpoint directly. Nothing leaves the machine.
 curl -fsSL https://raw.githubusercontent.com/gipsic/claude-usage/main/install.sh | sh
 ```
 
-Requires macOS and Node.js 22+ (`brew install node`). The installer puts the tool
-in `~/Applications/claude-usage`, adds `claude-usage` to your PATH, starts a
-background tracker at login, builds `Claude Usage.app`, and opens the dashboard
-at **http://127.0.0.1:4778**. Re-run it to upgrade. Nothing needs `sudo`.
+Requires Node.js 22+ (`brew install node`). On **macOS** the installer puts the
+tool in `~/Applications/claude-usage`, adds `claude-usage` to your PATH, starts a
+launchd agent at login, builds `Claude Usage.app`, and opens the dashboard at
+**http://127.0.0.1:4778**. On **Linux** it installs to
+`~/.local/share/claude-usage` and starts a `systemd --user` service instead
+(no menu-bar app). Re-run it to upgrade. Nothing needs `sudo`.
 
 Or with npm (Node users), which also puts `claude-usage` on your PATH:
 
@@ -69,14 +71,14 @@ Claude and a Mac, you can help — and you don't need to write code:
   you can send. Open an [issue](https://github.com/gipsic/claude-usage/issues).
 - **Share it** with the people you know who are always wondering how much of
   their 5-hour window is left.
-- **Port it.** Linux and Windows users have the same problem. The core is
-  portable; only the keychain reader, launchd installer and desktop-cache path
-  are macOS-specific.
+- **Test the Linux build.** It is new: transcripts, the credential file, the
+  dashboard and a systemd user service all work, but it has had far fewer miles
+  than the Mac. Windows is still unported.
 - **Build the native menu-bar app** we don't have yet, on top of the local API.
 - **Help pin down how limits are weighted.** We fit it from data; more accounts
   make the fit better.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). `npm test` runs 32 isolated tests
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). `npm test` runs 50 isolated tests
 in about three seconds. Pull requests of every size are welcome.
 
 ## Project status & maintenance
@@ -321,10 +323,14 @@ claude-usage install-daemon          # optionally: --port 4778
 claude-usage uninstall-daemon
 ```
 
-Installs a per-user launchd agent (`com.claude-usage.tracker`) that starts at
+On macOS this installs a per-user launchd agent (`com.claude-usage.tracker`);
+on Linux a `systemd --user` unit (`claude-usage.service`). Either one starts at
 login, restarts if it exits, and keeps scanning and polling whether or not a
-browser is open. Logs land in `~/.claude-usage/logs/`. The agent runs in your
-GUI session, so keychain access works — macOS may prompt once to allow it.
+browser is open. Logs land in `~/.claude-usage/logs/` (macOS) or
+`journalctl --user -u claude-usage.service` (Linux). The macOS agent runs in your
+GUI session, so keychain access works — macOS may prompt once to allow it. On
+Linux, `sudo loginctl enable-linger $USER` keeps the tracker running after you
+log out.
 
 ### As an app in Login Items
 
@@ -473,6 +479,23 @@ Everything stays on this machine. The only outbound requests are to
 `api.anthropic.com` for your own limit percentages and `status.anthropic.com` for
 incidents. The server binds to `127.0.0.1`.
 
+### What looks suspicious, and what it actually is
+
+A tool that reads credentials and calls an undocumented endpoint should expect
+to be questioned. Scanners flag some of this; here is all of it, in one place.
+
+| What you'll see | The fact | Why |
+| --- | --- | --- |
+| “URL strings” in a package scan (e.g. Socket) | Two hosts: `api.anthropic.com` and `status.anthropic.com`, plus `127.0.0.1` for the local dashboard. `grep -rn "https\?://" src/` shows every one. | Your limit percentages and Anthropic's incident feed. Nothing else is contacted, ever. |
+| It reads your keychain | `security find-generic-password` for `Claude Code-credentials*`, and on macOS the desktop app's `Claude Safe Storage` item. macOS asks you first. | These hold the OAuth token the usage endpoint needs. The token is sent only to `api.anthropic.com`, in the same header Claude Code uses. |
+| It shells out | `security`, `osascript` / `notify-send`, `open` / `xdg-open`, and `claude auth login` in a terminal window for sign-in. No shell strings are built from network data. | Keychain reads, notifications, opening the dashboard, and letting the real CLI run the real login. |
+| Zero dependencies, 4 versions, one maintainer | True, and deliberate — nothing is pulled in at install time and there are no install scripts. | Small surface. It also means a young package score until it ages. |
+| Network access at runtime | Yes: one `GET` per three minutes, at most. | The endpoint throttles hard; the desktop app's cache covers the gaps. |
+
+Everything above is in `src/` — under 5,000 lines with no build step, so what you
+read is what runs. [SECURITY.md](SECURITY.md) is where to report anything that
+looks wrong.
+
 ## Legal notes & disclaimer
 
 - **Not affiliated with, endorsed by, or supported by Anthropic.** "Claude" is a
@@ -496,6 +519,16 @@ incidents. The server binds to `127.0.0.1`.
 
 ## Requirements
 
-macOS with Node.js 22 or newer. No npm dependencies — the launcher finds Node
-even when it's managed by nvm, fnm or Volta and therefore missing from a launchd
-or GUI `PATH`.
+macOS or Linux with Node.js 22 or newer. No npm dependencies — the launcher finds
+Node even when it's managed by nvm, fnm or Volta and therefore missing from a
+launchd, systemd or GUI `PATH`.
+
+**What differs on Linux.** Claude Code stores its token in plaintext at
+`~/.claude/.credentials.json`, which is read directly — there is no keychain step
+and no desktop-app token to fall back on, so percentages go stale when that token
+expires until you use the CLI again. The Claude desktop app has no Linux build,
+so its usage cache (the source of month-long backfill on macOS) is absent and the
+history starts the day you install this. Notifications go through `notify-send`,
+browser sign-in opens whichever terminal emulator you have, and there is no
+menu-bar app. Everything else — transcripts, costs, charts, the API polling — is
+identical.

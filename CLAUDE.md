@@ -7,7 +7,8 @@ English; reply in the language they write in, and lead with status.
 
 ## What it is
 
-A local usage/limit tracker and history dashboard for Claude Code on macOS.
+A local usage/limit tracker and history dashboard for Claude Code on macOS
+(first-class) and Linux (since 1.1.0; no desktop-app cache or token there).
 Zero npm dependencies (Node ≥ 22, `node:sqlite`). A launchd agent scans
 transcripts, imports the desktop app's usage cache, polls Anthropic's usage
 endpoint, and serves a dashboard on `127.0.0.1:4778`. Nothing leaves the machine
@@ -16,6 +17,7 @@ except requests to `api.anthropic.com` (usage) and `status.anthropic.com`.
 ```
 claude-usage          sh launcher: finds node (nvm/fnm/volta/system), execs src/main.mjs
 src/apptoken.mjs      desktop app's own OAuth token (safeStorage decrypt) - fallback credential
+src/platform.mjs      macOS/Linux split: paths, browser, terminal emulators, notifier
 src/cli.mjs           commands; renderNow(); swiftbar() menu-bar output
 src/server.mjs        HTTP API + background loops (scanAll / pollLimits / alerts)
 src/scanner.mjs       incremental JSONL scan → events table (dedupe requestId|message.id)
@@ -37,8 +39,8 @@ test/                 node:test, hermetic (see Testing)
 1. **No OAuth client of our own.** We never extract or use Claude Code's
    `client_id`; sign-in runs the real `claude auth login` in a Terminal window.
    Reason: the consent screen must name the app that is asking, and a rotating
-   refresh token swapped by us could log the user's Claude Code out
-   (`@tsa-group/claude-usage` refuses refresh for the same reason).
+   refresh token swapped by us could log the user's Claude Code out - which is
+   why refreshing is off the table for a third-party reader at all.
 2. **Honest User-Agent** `claude-usage/<version> (+repo)`. Anthropic accepts it;
    throttling is tolerable because the desktop cache covers gaps.
 3. **`claude setup-token` is a dead end for this endpoint** — tested 2026-09-07,
@@ -113,7 +115,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 46 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 50 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
@@ -130,14 +132,17 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
    (or `npm version patch` — it commits and tags itself; don't also tag by hand).
 2. `git push --follow-tags`, `gh release create vX.Y.Z --notes-file <section>`.
 3. `npm publish` — needs the user's npm login + 2FA; Claude cannot do it.
+   Alternative, once `NPM_TOKEN` (an npm automation token) is a repo secret: run
+   the *Publish to npm* workflow from the Actions tab against the tag. It is
+   manual-dispatch only, checks package.json against the tag, and publishes with
+   `--provenance` so the registry can tie the tarball to this commit.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
-## Next work (analysis of @tsa-group/claude-usage, 2026-09-07)
+## Next work (plan of 2026-09-07)
 
-That package is an internal *telemetry client* (uploads to a company server,
-UNLICENSED, text-only local view) — not a competitor UI — but its credential and
-platform work is worth borrowing as ideas (not code: no license).
+Ideas only; every line below was re-derived and verified here before use. Do not
+copy code from other projects into this one - it is MIT and must stay clean.
 
 **A. Desktop-app token (macOS) — DONE, `src/apptoken.mjs`.** The recipe held
 exactly as written: `oauth:tokenCacheV2` is base64 of `v10` + AES-128-CBC,
@@ -157,10 +162,21 @@ failed read backs off 10 min so a *Deny* cannot re-prompt every poll. The
 safe-storage password is cached in-process and re-read once if a decrypt fails
 (key rotation). Not covered: Linux/Windows equivalents (B/C below).
 
-**B. Linux.** Token from `~/.claude/.credentials.json` (plaintext), same
-transcript layout, no desktop cache (so API-only for percentages), background via
-`systemd --user` service/timer, `xdg-open` for the browser, notifications via
-`notify-send`. Small job; the other package has *no* Linux background at all.
+**B. Linux — DONE.** `src/platform.mjs` holds the whole platform split
+(`desktopSupportDir` / `openUrl` / `terminalLaunchers` / `which` / `hasDisplay`);
+everything else was already portable. Token comes from
+`~/.claude/.credentials.json` via the existing file branch of `readToken`, so
+there is nothing keychain-shaped on Linux and `desktopToken` answers
+`unsupported-platform`. Background is `bin/install-systemd.sh` -> a
+`systemd --user` unit with `RestartPreventExitStatus=75` (the EADDRINUSE exit,
+which must not restart-loop) and a `loginctl enable-linger` hint. Sign-in writes
+the same script with a `#!/bin/sh` head and hands it to the first terminal
+emulator found - spawned **detached**, because `xterm -e` and friends do not
+return until the window closes. Login completion is detected by `loginSnapshot`,
+which is the keychain map on macOS and the credential file elsewhere. CI runs
+ubuntu-latest as well. Untested on real hardware: the terminal-emulator launch
+and `notify-send` (there is no Linux box here; a faked `process.platform` smoke
+run covers the paths that don't need a desktop).
 
 **C. Windows.** Token file `%USERPROFILE%\.claude\.credentials.json`; transcripts
 `%USERPROFILE%\.claude\projects`; background via `schtasks` + a VBS hidden-window
@@ -173,9 +189,9 @@ bundled inside Claude desktop. PowerShell execution policy may block the npm
 Desktop-app token there = DPAPI (`Local State` → `os_crypt.encrypted_key`,
 strip `DPAPI` prefix) + AES-256-GCM — later.
 
-**D. Small UX borrowings.** `install-daemon --dry-run`; a credential error
-taxonomy with a fix per case (`keychain-locked`, `keychain-no-item`, …); a README
-table of "what looks suspicious / the fact / why".
+**D. Small UX.** `install-daemon --dry-run` is still open. The credential error
+taxonomy shipped with A (`desktopTokenState()`), and the README "what looks
+suspicious / the fact / why" table shipped with the Linux release.
 
 Not doing: any ingest server / telemetry.
 

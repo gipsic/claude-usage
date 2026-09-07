@@ -1,0 +1,52 @@
+name: Publish to npm
+
+# Manual only: publishing is a decision, not a side effect of pushing a tag.
+# Run it from the Actions tab after the release tag exists.
+#
+# What it adds over `npm publish` from a laptop: npm provenance. The registry
+# records, and verifies, that this exact tarball was built from this repo at this
+# commit by this workflow - a signed link from published bytes back to source.
+#
+# Needs one repository secret: NPM_TOKEN, an npm *automation* token
+# (npmjs.com -> Access Tokens -> Granular, read+write on @gipsic/claude-usage).
+# Automation tokens are exempt from the 2FA prompt, which is what lets CI publish.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.1.0)'
+        required: true
+      dry_run:
+        description: 'Pack only, do not publish'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write        # required for provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      # Never publish something that is not green, and never publish a tarball
+      # whose version does not match the tag being released.
+      - run: npm test
+      - name: version matches the tag
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          [ "$PKG" = "${{ inputs.tag }}" ] || { echo "package.json is $PKG but the tag is ${{ inputs.tag }}"; exit 1; }
+
+      - run: npm pack --dry-run
+      - if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

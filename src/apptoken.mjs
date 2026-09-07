@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { desktopConfigPath as appConfigPath } from './platform.mjs';
 
 /**
  * The Claude desktop app's own OAuth token, read out of its encrypted cache.
@@ -27,8 +28,7 @@ import os from 'node:os';
  */
 export const SAFE_STORAGE_SERVICE = 'Claude Safe Storage';
 export const SAFE_STORAGE_ACCOUNT = 'Claude Key';
-export const DESKTOP_CONFIG = path.join(
-  os.homedir(), 'Library', 'Application Support', 'Claude', 'config.json');
+export const DESKTOP_CONFIG = appConfigPath();
 
 // Chromium's public constants; the desktop app is an Electron app and uses them.
 const SALT = 'saltysalt';

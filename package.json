@@ -1,8 +1,8 @@
 {
   "name": "@gipsic/claude-usage",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "type": "module",
-  "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your Mac, from your own data.",
+  "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your own machine, from your own data.",
   "bin": {
     "claude-usage": "claude-usage"
   },
@@ -29,13 +29,20 @@
     "usage",
     "limits",
     "dashboard",
-    "macos"
+    "macos",
+    "linux"
   ],
   "files": [
     "claude-usage",
     "src/",
     "web/",
-    "bin/",
+    "bin/install.sh",
+    "bin/install-daemon.sh",
+    "bin/uninstall-daemon.sh",
+    "bin/install-systemd.sh",
+    "bin/uninstall-systemd.sh",
+    "bin/make-app.sh",
+    "bin/claude-usage.1m.sh",
     "install.sh",
     "uninstall.sh",
     "README.md",
@@ -47,6 +54,7 @@
     "access": "public"
   },
   "os": [
-    "darwin"
+    "darwin",
+    "linux"
   ]
 }
