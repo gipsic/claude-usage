@@ -74,9 +74,11 @@ test('every failure is a named reason, never a throw', () => {
   const noKeychain = process.env.CLAUDE_USAGE_NO_KEYCHAIN;
   const cfg = process.env.CLAUDE_USAGE_DESKTOP_CONFIG;
   try {
-    // The suite-wide keychain switch keeps the daemon off the real keychain.
+    // The suite-wide keychain switch keeps the daemon off the real keychain -
+    // except off macOS, where there is no keychain to be kept off in the first place.
     assert.equal(app.desktopToken(), null);
-    assert.equal(app.desktopTokenState().error, 'disabled');
+    assert.equal(app.desktopTokenState().error,
+      process.platform === 'darwin' ? 'disabled' : 'unsupported-platform');
 
     delete process.env.CLAUDE_USAGE_NO_KEYCHAIN;
     app.resetDesktopToken();

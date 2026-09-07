@@ -13,6 +13,7 @@ endpoint directly. Nothing leaves the machine.
 ![macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 [![npm](https://img.shields.io/npm/v/%40gipsic%2Fclaude-usage?label=npm)](https://www.npmjs.com/package/@gipsic/claude-usage)
 [![Release](https://img.shields.io/github/v/release/gipsic/claude-usage)](https://github.com/gipsic/claude-usage/releases)
+[![Socket](https://badge.socket.dev/npm/package/@gipsic/claude-usage)](https://socket.dev/npm/package/@gipsic/claude-usage)
 
 [ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
