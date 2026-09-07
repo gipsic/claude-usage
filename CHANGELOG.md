@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-09-07
+
 ### Changed
 - A saved/pasted token the usage endpoint rejects (401) is dropped automatically so it cannot shadow a valid keychain login. (`claude setup-token` was evaluated as a long-lived credential; the endpoint answers 401 to it, so sign-in stays on `auth login` and the mint-and-paste route was removed from the UI and docs.)
 
@@ -50,7 +52,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/gipsic/claude-usage/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/gipsic/claude-usage/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/gipsic/claude-usage/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/gipsic/claude-usage/compare/v1.0.0...v1.0.1

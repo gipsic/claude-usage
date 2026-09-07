@@ -429,7 +429,7 @@ const COMMANDS = {
       }
       if (!tok) {
         console.log('usage: claude-usage accounts token <id> <token>');
-        console.log(dim('  mint one with:  claude setup-token'));
+        console.log(dim('  (note: the usage endpoint rejects claude setup-token tokens - 401)'));
         process.exit(1);
       }
       Acct.saveToken(id, tok);

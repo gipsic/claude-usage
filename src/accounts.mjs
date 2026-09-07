@@ -15,7 +15,7 @@ export const credPath = (id) => path.join(CRED_DIR, `${slug(id)}.json`);
 
 /**
  * Store a long-lived OAuth token for an account.
- * Produced by `claude setup-token`; written 0600 and never sent anywhere except
+ * Written 0600 and never sent anywhere except
  * the Authorization header of the request to api.anthropic.com.
  */
 export function saveToken(id, token, { expiresAt = null } = {}) {
