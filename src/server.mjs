@@ -69,7 +69,14 @@ export async function pollLimits(rt, { force = false } = {}) {
         catch { /* optional */ }
       }
 
-      const res = await fetchUsage({ configDir: acct.configDir, accountId: acct.id });
+      let res = await fetchUsage({ configDir: acct.configDir, accountId: acct.id });
+      if (!res.ok && res.status === 401 && Acct.hasManagedToken(acct.id)) {
+        // A pasted/captured token the endpoint rejects would otherwise shadow a
+        // perfectly good keychain login on every poll. Drop it and try again.
+        Acct.clearToken(acct.id);
+        console.error(`[poll] ${acct.id}: saved token rejected (401) - removed, falling back to keychain`);
+        res = await fetchUsage({ configDir: acct.configDir, accountId: acct.id });
+      }
       if (res.ok) recordUsage(rt.db, res.data, { account: acct.id, now });
       if (res.ok || desktop?.ok) calibrate(rt.db, acct.id);
 

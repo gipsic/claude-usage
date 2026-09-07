@@ -259,16 +259,18 @@ Press **Sign in with browser** in the Accounts panel, or run:
 claude-usage login --web
 ```
 
-That runs Claude Code's own `claude setup-token`, which opens **claude.ai** in your
+That runs Claude Code's own `claude auth login`, which opens **claude.ai** in your
 browser. You approve there; nothing is typed into this tool and it never sees
-your password. The token it issues is **long-lived (about a year)** and is stored
-in `~/.claude-usage/credentials/` with mode `0600`, so limits keep updating while
-Claude Code is closed.
+your password.
 
-Why not the regular `claude auth login`? Its access token lasts an hour and only
-Claude Code refreshes it, and only while you are actually using the CLI — so a
-background tracker built on it goes stale within the hour. `setup-token` is the
-mechanism Anthropic provides for exactly this non-interactive case.
+**About token lifetime.** The access token this yields lasts one hour, and only
+Claude Code renews it — whenever you use the CLI. While it is expired the
+per-model window (Fable) is badged *stale* and the other windows fall back to
+the desktop app's cache. `claude setup-token` was tested as an alternative: it
+issues a year-long token, but the usage endpoint rejects it (401 — its scope is
+`user:inference`, not `user:profile`). Renewing the session token ourselves would
+require presenting Claude Code's OAuth client identity, which this project
+deliberately does not do; tools that never go stale do exactly that.
 
 > This deliberately does not implement its own OAuth client. Claude's
 > authorization flow belongs to Claude Code, and re-using its client identity

@@ -457,10 +457,9 @@ const COMMANDS = {
 
     if (flags.web) {
       // Hand the whole flow to Claude's own CLI and mirror it here, so this is
-      // the same browser sign-in the dashboard button performs. Default is a
-      // long-lived setup-token; --claudeai gives the hourly session token instead.
+      // the same browser sign-in the dashboard button performs.
       const r = await WebLogin.start({ accountId: a.id, configDir: a.configDir,
-        mode: flags.console ? 'console' : flags.claudeai ? 'claudeai' : 'setup-token' });
+        mode: flags.console ? 'console' : 'claudeai' });
       if (!r.ok) {
         console.error(`${red('✗')} ${r.error === 'claude-cli-not-found'
           ? 'the `claude` CLI was not found — install Claude Code first'

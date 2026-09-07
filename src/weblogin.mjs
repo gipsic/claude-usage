@@ -58,14 +58,14 @@ export function findClaude() {
 }
 
 /** The command a user would type to sign this account in. */
-export function loginCommand({ configDir, mode = 'setup-token' } = {}) {
+export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
   const cli = findClaude() || 'claude';
   const isDefault = !configDir || configDir === path.join(os.homedir(), '.claude');
   const prefix = isDefault ? '' : `CLAUDE_CONFIG_DIR="${configDir}" `;
   if (mode === 'setup-token') {
-    // A long-lived token (about a year) meant for non-interactive use. Unlike the
-    // hourly access token from `auth login`, it keeps working while Claude Code
-    // is closed - which is what a background tracker needs.
+    // Long-lived token for non-interactive use. Kept as an explicit option only:
+    // tested 2026-09-07, the usage endpoint answers 401 to it (scope is
+    // user:inference, not user:profile), so it cannot be the default.
     return { cli, mode, display: `${prefix}claude setup-token`, argv: [cli, 'setup-token'], isDefault };
   }
   const flag = mode === 'console' ? '--console' : '--claudeai';
@@ -171,7 +171,7 @@ function DATA_HOME() {
  * Start a sign-in: open the Terminal window, then watch for the credential.
  * Returns immediately; poll `status()`.
  */
-export async function start({ accountId = 'default', configDir, mode = 'setup-token' } = {}) {
+export async function start({ accountId = 'default', configDir, mode = 'claudeai' } = {}) {
   const cli = findClaude();
   if (!cli) return { ok: false, error: 'claude-cli-not-found' };
 
@@ -209,12 +209,17 @@ export async function start({ accountId = 'default', configDir, mode = 'setup-to
     return { ok: true, id, command: s.command, scriptPath: s.scriptPath, error: s.error, detail: s.detail };
   }
 
-  // Watch for a credential that differs from whatever was there before.
+  // Watch for the credential this flow actually produces. setup-token mode is
+  // done only when the managed credential file exists - the CLI refreshes the
+  // hourly keychain token as a side effect of starting, which is not a login.
+  // Session-token mode is done when any keychain entry changed.
   s.timer = setInterval(() => {
-    const nowAll = allKeychainTokens();
-    const changed = Object.entries(nowAll).some(([svc, c]) => s.beforeAll[svc] !== c.token);
-    const tok = readToken({ configDir: s.configDir, accountId: s.accountId, fresh: true });
-    if (changed || (tok && tok.token !== s.beforeToken)) {
+    const done = mode === 'setup-token'
+      ? (() => { const t = readToken({ configDir: s.configDir, accountId: s.accountId, fresh: true });
+                 return t?.source === 'saved' && t.token !== s.beforeToken; })()
+      : (() => { const now = allKeychainTokens();
+                 return Object.entries(now).some(([svc, c]) => c.token !== beforeAll[svc]?.token); })();
+    if (done) {
       s.status = 'signed-in';
       s.endedAt = Date.now();
       clearInterval(s.timer);

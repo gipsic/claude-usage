@@ -404,11 +404,9 @@ function signInDialog(a) {
   let session = null, poll = null;
   dialog(`
     <h3>Sign in — ${esc(a.email || a.label)}</h3>
-    <p>Runs Claude Code's own <code>claude setup-token</code> in a Terminal window and opens
-       <b>claude.ai</b> for you to approve. That issues a <b>long-lived token</b> (about a year),
-       so the dashboard keeps updating while Claude Code is closed — the hourly session
-       token from a normal login goes stale as soon as you stop using the CLI.
-       Nothing is typed here and this tool never sees your password.</p>
+    <p>Runs Claude Code's own sign-in in a Terminal window and opens <b>claude.ai</b>
+       for you to approve. Nothing is typed here and this tool never sees your password.
+       The token it yields lasts an hour and is renewed whenever you use Claude Code.</p>
     <div id="li-stage">
       <div class="row" style="justify-content:flex-start">
         <button class="btn primary" type="button" id="li-go">Sign in with browser</button>
