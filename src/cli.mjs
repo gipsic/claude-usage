@@ -537,9 +537,10 @@ const COMMANDS = {
   // Windows; all three start the tracker at login and restart it if it dies.
   'install-daemon'(rt, { flags }) {
     const port = String(flags.port || rt.cfg.port);
-    if (IS_WINDOWS) return runPowerShell('install-task.ps1', ['-Port', port, ...(flags['dry-run'] ? ['-DryRun'] : [])]);
+    const dry = !!flags['dry-run'];
+    if (IS_WINDOWS) return runPowerShell('install-task.ps1', ['-Port', port, ...(dry ? ['-DryRun'] : [])]);
     execFileSync(path.join(ROOT, 'bin', IS_MAC ? 'install-daemon.sh' : 'install-systemd.sh'),
-      [port], { stdio: 'inherit' });
+      [port, ...(dry ? ['--dry-run'] : [])], { stdio: 'inherit' });
   },
   'uninstall-daemon'() {
     if (IS_WINDOWS) return runPowerShell('uninstall-task.ps1', []);
@@ -566,7 +567,7 @@ ${bold('claude-usage')} — usage, limit tracking and history for Claude Code
   ${bold('status')}                          Anthropic service status
   ${bold('doctor')}                          verify data sources and credentials
   ${bold('config')}  [path|edit]             show / edit configuration
-  ${bold('install-daemon')}                  run the tracker at login (launchd / systemd --user)
+  ${bold('install-daemon')} [--dry-run]        run the tracker at login (launchd / systemd / task)
   ${bold('uninstall-daemon')}
 
   Ranges: 5h 24h 7d 30d 90d 365d all

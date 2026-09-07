@@ -3,10 +3,20 @@
 # it dies, and keeps tracking in the background whether or not a browser is open.
 # The Linux counterpart of bin/install-daemon.sh (launchd).
 #
-#   bin/install-systemd.sh [port]
+#   bin/install-systemd.sh [port] [--dry-run]
+#
+# --dry-run prints the unit it would install and changes nothing.
 set -e
 
-PORT="${1:-4778}"
+PORT=4778
+DRY=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    ''|*[!0-9]*) ;;
+    *) PORT="$arg" ;;
+  esac
+done
 UNIT="claude-usage.service"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BIN="$ROOT/claude-usage"
@@ -28,6 +38,22 @@ MSG
 
 NODE_BIN=$(command -v node) || { echo "install-systemd: node not found on PATH" >&2; exit 1; }
 NODE_DIR=$(dirname "$NODE_BIN")
+
+if [ -n "$DRY" ]; then
+  cat <<EOF
+
+  Would install $UNIT
+
+    ExecStart   $BIN serve --port $PORT
+    node dir    $NODE_DIR
+    unit        $UNIT_PATH
+    data        $DATA
+
+  Nothing was written. Run without --dry-run to install.
+
+EOF
+  exit 0
+fi
 
 mkdir -p "$UNIT_DIR" "$DATA/logs"
 

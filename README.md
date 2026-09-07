@@ -547,8 +547,10 @@ browser sign-in opens whichever terminal emulator you have, and there is no
 menu-bar app. Everything else — transcripts, costs, charts, the API polling — is
 identical.
 
-**What differs on Windows.** The same picture as Linux — plaintext credentials at
-`%USERPROFILE%\.claude\.credentials.json`, no desktop-app cache or token — plus:
+**What differs on Windows.** Plaintext credentials at
+`%USERPROFILE%\.claude\.credentials.json` and no desktop-app usage cache (so no
+month of backfill), though the desktop app's *token* is read there as it is on a
+Mac — unwrapped with DPAPI instead of the keychain. Beyond that:
 the background job is a scheduled task rather than a service; notifications are
 Windows toasts raised through PowerShell; sign-in opens a console window running
 `claude auth login`; and `claude-usage setup-token` has no counterpart (it needs

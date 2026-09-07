@@ -45,6 +45,40 @@ test('a wrong password or a foreign envelope fails loudly rather than returning 
   assert.throws(() => app.decryptTokenCache(Buffer.from('v11nonsense').toString('base64'), 'p'), /bad-prefix/);
 });
 
+/** Seal the way Chromium does it on Windows: v10 + 12-byte nonce + ct + 16-byte tag. */
+function sealGcm(obj, key) {
+  const nonce = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', key, nonce);
+  const body = Buffer.concat([c.update(JSON.stringify(obj), 'utf8'), c.final()]);
+  return Buffer.concat([Buffer.from('v10'), nonce, body, c.getAuthTag()]).toString('base64');
+}
+
+test('the Windows envelope decrypts, and a wrong key is rejected rather than guessed at', () => {
+  const key = crypto.randomBytes(32);
+  const entries = app.parseTokenCache(app.decryptTokenCacheGcm(sealGcm(CACHE, key), key));
+  assert.equal(entries.length, 2);
+  assert.equal(entries.find((e) => e.scopes.includes('user:inference')).token, 'sk-ant-oat01-inference');
+  // GCM authenticates, so the wrong key cannot quietly produce garbage.
+  assert.throws(() => app.decryptTokenCacheGcm(sealGcm(CACHE, key), crypto.randomBytes(32)));
+  assert.throws(() => app.decryptTokenCacheGcm(Buffer.from('v11nope').toString('base64'), key), /bad-prefix/);
+});
+
+test('the Windows master key is unwrapped from Local State, DPAPI magic and all', () => {
+  const file = path.join(HOME, 'Local State');
+  const sealed = Buffer.from('pretend-this-is-a-dpapi-blob');
+  fs.writeFileSync(file, JSON.stringify({
+    os_crypt: { encrypted_key: Buffer.concat([Buffer.from('DPAPI'), sealed]).toString('base64') },
+  }));
+  assert.deepEqual(app.readSealedKey(file), sealed);
+
+  // A key that is not DPAPI-wrapped is not something to hand to CryptUnprotectData.
+  fs.writeFileSync(file, JSON.stringify({ os_crypt: { encrypted_key: Buffer.from('plain').toString('base64') } }));
+  assert.throws(() => app.readSealedKey(file), (e) => e.reason === 'master-key-not-dpapi');
+
+  fs.writeFileSync(file, JSON.stringify({ os_crypt: {} }));
+  assert.throws(() => app.readSealedKey(file), (e) => e.reason === 'no-master-key');
+});
+
 test('parseTokenCache drops entries without a token and survives odd keys', () => {
   const entries = app.parseTokenCache({ 'not-an-acct-key': { token: 't' }, bad: { expiresAt: 1 } });
   assert.equal(entries.length, 1);

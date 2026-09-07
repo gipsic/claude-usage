@@ -2,10 +2,20 @@
 # Install claude-usage as a per-user launchd agent: starts at login, restarts if
 # it dies, and keeps tracking in the background whether or not a browser is open.
 #
-#   bin/install-daemon.sh [port]
+#   bin/install-daemon.sh [port] [--dry-run]
+#
+# --dry-run prints the agent it would install and changes nothing.
 set -e
 
-PORT="${1:-4778}"
+PORT=4778
+DRY=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    ''|*[!0-9]*) ;;
+    *) PORT="$arg" ;;
+  esac
+done
 LABEL="com.claude-usage.tracker"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BIN="$ROOT/claude-usage"
@@ -37,6 +47,23 @@ esac
 
 NODE_BIN=$(command -v node) || { echo "install-daemon: node not found on PATH" >&2; exit 1; }
 NODE_DIR=$(dirname "$NODE_BIN")
+
+if [ -n "$DRY" ]; then
+  cat <<EOF
+
+  Would install $LABEL
+
+    program     $BIN serve --port $PORT
+    node dir    $NODE_DIR
+    plist       $PLIST
+    data        $DATA
+    logs        $DATA/logs/
+
+  Nothing was written. Run without --dry-run to install.
+
+EOF
+  exit 0
+fi
 
 mkdir -p "$HOME/Library/LaunchAgents" "$DATA/logs"
 
