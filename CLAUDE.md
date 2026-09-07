@@ -151,7 +151,18 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
-## Next work (plan of 2026-09-07)
+## What is actually next (2026-09-07, after A-D shipped)
+
+1. **Publish.** v1.1.0 and v1.2.0 are tagged and released on GitHub but neither
+   is on npm - publish once, as 1.2.0 (or whatever `main` says), and the two
+   skipped versions simply never exist there. Provenance route: add the
+   `NPM_TOKEN` secret and run the *Publish to npm* workflow against the tag.
+2. **Verify Windows on real hardware.** Everything in C is CI-only: nobody has
+   registered the scheduled task, seen a toast, completed a console sign-in, or
+   exercised the DPAPI master-key read. Until someone does, keep calling it beta.
+3. The **open questions** below, which need long API-sourced history.
+
+## The plan of 2026-09-07 (A-D, all shipped)
 
 Ideas only; every line below was re-derived and verified here before use. Do not
 copy code from other projects into this one - it is MIT and must stay clean.
