@@ -272,15 +272,6 @@ issues a year-long token, but the usage endpoint rejects it (401 — its scope i
 require presenting Claude Code's OAuth client identity, which this project
 deliberately does not do; tools that never go stale do exactly that.
 
-> This deliberately does not implement its own OAuth client. Claude's
-> authorization flow belongs to Claude Code, and re-using its client identity
-> from another program would show you a consent screen naming an app that isn't
-> the one asking. Driving the real CLI keeps the consent screen honest.
-
-Signing in also replaces every inferred reset time with the exact one Anthropic
-reports, and unlocks the per-model weekly window (e.g. *Weekly Fable*) that the
-desktop cache doesn't carry.
-
 Manual routes, if you prefer:
 
 ```bash
