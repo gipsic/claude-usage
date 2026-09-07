@@ -6,6 +6,18 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-07
+
+### Added
+- **Windows support (beta — CI-verified only).** Transcripts, costs, charts, alerts and the dashboard work the same way; the token comes from `%USERPROFILE%\.claude\.credentials.json`. `claude-usage install-daemon` registers a scheduled task that starts at logon through a hidden-window VBS launcher (no console flash), and **sets the three Task Scheduler options that otherwise stop a laptop's tasks on battery** (`DisallowStartIfOnBatteries`, `StopIfGoingOnBatteries`, `StartWhenAvailable`) — then reads them back and says so if Windows kept its own defaults. It refuses to install from an MSIX-virtualised path or against the Node bundled inside Claude Desktop, since neither survives an app update. Notifications are Windows toasts via PowerShell; sign-in opens a console window; `setup-token` has no Windows counterpart. Install with npm — the shell installer is POSIX-only. CI now runs `windows-latest` too.
+- `claude-usage install-daemon --dry-run` on Windows: prints what would be registered and changes nothing.
+
+### Changed
+- The `claude-usage` command installed by npm is now a small Node entry point (`bin/cli.js`) rather than the `/bin/sh` launcher, so it works from PowerShell and `cmd`. The sh launcher stays where it was and is still what launchd and systemd exec — it is the one that finds Node under nvm/fnm/volta.
+
+### Fixed
+- `weblogin` no longer assumes POSIX: `PATH` is split on the platform separator, npm's `claude.cmd` shim is found, and the module's own path is resolved with `fileURLToPath` (a `file://` pathname is `/C:/…` on Windows).
+
 ## [1.1.0] — 2026-09-07
 
 ### Added
@@ -71,7 +83,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/gipsic/claude-usage/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/gipsic/claude-usage/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/gipsic/claude-usage/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/gipsic/claude-usage/compare/v1.0.2...v1.0.3

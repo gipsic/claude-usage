@@ -8,7 +8,8 @@ English; reply in the language they write in, and lead with status.
 ## What it is
 
 A local usage/limit tracker and history dashboard for Claude Code on macOS
-(first-class) and Linux (since 1.1.0; no desktop-app cache or token there).
+(first-class), Linux (1.1.0) and Windows (1.2.0, CI-verified only). Off macOS
+there is no desktop-app cache and no desktop-app token.
 Zero npm dependencies (Node ≥ 22, `node:sqlite`). A launchd agent scans
 transcripts, imports the desktop app's usage cache, polls Anthropic's usage
 endpoint, and serves a dashboard on `127.0.0.1:4778`. Nothing leaves the machine
@@ -17,7 +18,8 @@ except requests to `api.anthropic.com` (usage) and `status.anthropic.com`.
 ```
 claude-usage          sh launcher: finds node (nvm/fnm/volta/system), execs src/main.mjs
 src/apptoken.mjs      desktop app's own OAuth token (safeStorage decrypt) - fallback credential
-src/platform.mjs      macOS/Linux split: paths, browser, terminal emulators, notifier
+src/platform.mjs      platform split: paths, browser, terminal, notifier (pure fns of platform+env)
+bin/cli.js            node entry point npm puts on PATH (Windows has no sh)
 src/cli.mjs           commands; renderNow(); swiftbar() menu-bar output
 src/server.mjs        HTTP API + background loops (scanAll / pollLimits / alerts)
 src/scanner.mjs       incremental JSONL scan → events table (dedupe requestId|message.id)
@@ -115,15 +117,16 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 50 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 51 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
 `{"data":{...}}` stands in for the endpoint. **Gate every push on the exit code
 of `npm test` (run 3×)** — an `&&` chain that only greps the summary once let a
 red commit onto main. GitHub Actions YAML: never put `${{ }}` inside `{ }` flow
-mappings (broke parsing → 0 jobs, no logs). CI runs macos-latest **and
-ubuntu-latest** on Node 22/24 since 1.1.0.
+mappings (broke parsing → 0 jobs, no logs). CI runs macos-latest, ubuntu-latest **and windows-latest**
+on Node 22/24 (Linux since 1.1.0, Windows since 1.2.0); the Windows job has its
+own smoke and PowerShell-parse steps because the others are POSIX shell.
 **Renaming a CI job orphans branch protection**: `main`'s required status checks
 are stored as literal job names, so putting the OS into the matrix name left
 every PR unmergeable ("base branch policy prohibits the merge") until
@@ -184,16 +187,29 @@ ubuntu-latest as well. Untested on real hardware: the terminal-emulator launch
 and `notify-send` (there is no Linux box here; a faked `process.platform` smoke
 run covers the paths that don't need a desktop).
 
-**C. Windows.** Token file `%USERPROFILE%\.claude\.credentials.json`; transcripts
-`%USERPROFILE%\.claude\projects`; background via `schtasks` + a VBS hidden-window
-launcher, then **fix three defaults that stop tasks on battery**
-(`DisallowStartIfOnBatteries`, `StopIfGoingOnBatteries`, `StartWhenAvailable` —
-only settable via `Set-ScheduledTask`; verify by reading back). Refuse to install
-from an MSIX-virtualised path (`AppData\Local\Packages\...`) or with the node
-bundled inside Claude desktop. PowerShell execution policy may block the npm
-`.ps1` shim (`RemoteSigned` or use `.cmd`). Needs a real Windows machine to test.
-Desktop-app token there = DPAPI (`Local State` → `os_crypt.encrypted_key`,
-strip `DPAPI` prefix) + AES-256-GCM — later.
+**C. Windows — SHIPPED IN 1.2.0, BUT UNVERIFIED ON REAL HARDWARE.** Everything
+below runs green on `windows-latest` in CI (tests, CLI, `doctor`,
+`install-daemon --dry-run`, PowerShell parse) and nowhere else — nobody has
+registered the task, seen a toast, or signed in through the console on an actual
+Windows desktop. Say so when asked; the README and CHANGELOG label it beta.
+- `bin/install-task.ps1` registers the task (`wscript //nologo run-hidden.vbs
+  <node> <main.mjs> serve --port N` - a bare node action flashes a console at
+  every logon), sets the three battery options via `New-ScheduledTaskSettingsSet`
+  **and** `Set-ScheduledTask`, then reads them back with `Get-ScheduledTask` and
+  prints a warning naming any that Windows kept. Guards: refuses an
+  `AppData\Local\Packages\` path (MSIX virtualisation) and refuses the node
+  bundled in Claude Desktop (`\AnthropicClaude\`), plus a node >= 22 check.
+- Execution policy: the CLI always invokes `powershell -NoProfile
+  -ExecutionPolicy Bypass -File`, so a default `Restricted` policy cannot block
+  the bundled scripts.
+- npm's shim: `bin` now points at `bin/cli.js` (node shebang) instead of the sh
+  launcher, or `claude-usage` on Windows would need Git Bash. The sh launcher is
+  unchanged and is still what launchd/systemd exec.
+- Sign-in writes a `.cmd` (CRLF, `pause` at the end) and opens it with
+  `cmd /c start`; `setup-token` refuses on Windows (needs `script(1)`).
+- Still open: the desktop-app token on Windows = DPAPI (`Local State` →
+  `os_crypt.encrypted_key`, strip the `DPAPI` prefix) + AES-256-GCM. Not
+  attempted; `desktopToken` answers `unsupported-platform` there.
 
 **D. Small UX.** `install-daemon --dry-run` is still open. The credential error
 taxonomy shipped with A (`desktopTokenState()`), and the README "what looks
