@@ -264,13 +264,21 @@ browser. You approve there; nothing is typed into this tool and it never sees
 your password.
 
 **About token lifetime.** The access token this yields lasts one hour, and only
-Claude Code renews it — whenever you use the CLI. While it is expired the
-per-model window (Fable) is badged *stale* and the other windows fall back to
-the desktop app's cache. `claude setup-token` was tested as an alternative: it
-issues a year-long token, but the usage endpoint rejects it (401 — its scope is
-`user:inference`, not `user:profile`). Renewing the session token ourselves would
-require presenting Claude Code's OAuth client identity, which this project
-deliberately does not do; tools that never go stale do exactly that.
+Claude Code renews it — whenever you use the CLI. When it has lapsed, macOS falls
+back to the **Claude desktop app's own token**, which the app keeps fresh for as
+long as it runs: it is read from the app's encrypted store
+(`~/Library/Application Support/Claude/config.json`, unlocked with the
+`Claude Safe Storage` keychain item — macOS asks for permission the first time,
+click *Always Allow*), used only for the same read-only usage call, and never
+refreshed or written back. `claude-usage doctor` shows whether it is readable and
+why not if it isn't. With neither token live, the per-model window (Fable) is
+badged *stale* and the other windows fall back to the desktop app's usage cache.
+
+`claude setup-token` was tested as an alternative: it issues a year-long token,
+but the usage endpoint rejects it (401 — its scope is `user:inference`, not
+`user:profile`). Renewing the session token ourselves would require presenting
+Claude Code's OAuth client identity, which this project deliberately does not do;
+tools that never go stale do exactly that.
 
 Prefer the terminal? Sign in there instead:
 

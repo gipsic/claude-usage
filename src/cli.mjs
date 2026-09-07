@@ -5,7 +5,7 @@ import url from 'node:url';
 import { createRuntime, createServer, startLoops, scanAll, pollLimits, stateFor, menubarLine } from './server.mjs';
 import { scan } from './scanner.mjs';
 import { calibrate, loadCalibration, WINDOWS } from './limits.mjs';
-import { readToken, fetchUsage, accountInfo, clientVersion } from './oauth.mjs';
+import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState } from './oauth.mjs';
 import { serviceStatus } from './status.mjs';
 import { CONFIG_PATH, ensureConfig } from './config.mjs';
 import { DATA_DIR } from './db.mjs';
@@ -365,7 +365,14 @@ const COMMANDS = {
       const info = accountInfo(a.configDir);
       if (info) console.log(`    signed in as        ${info.emailAddress}  ${dim(info.organizationRateLimitTier || '')}`);
       const tok = readToken({ configDir: a.configDir });
-      console.log(`    oauth token         ${tok ? grn(`found (${tok.source})`) : red('not found')}`);
+      console.log(`    oauth token         ${tok ? grn(`found (${tok.source})`) : red('not found')}${
+        tok?.expiresAt ? dim(`  expires ${new Date(tok.expiresAt).toISOString().slice(0, 16)}`) : ''}`);
+      // The desktop app's own token is the fallback for an idle machine, where
+      // the CLI's hour-long token has lapsed. Name the reason when it is unusable.
+      desktopToken({ accountUuid: info?.accountUuid, orgUuid: info?.organizationUuid });
+      const app = desktopTokenState();
+      console.log(`    desktop app token   ${app.ok ? grn('readable') : yel(app.error)}${
+        app.error === 'keychain-timeout' ? dim('  (a Keychain dialog is waiting - click Always Allow)') : ''}`);
       console.log(`    client version      ${clientVersion(a.configDir)}`);
       const n = rt.db.prepare('SELECT COUNT(*) n, MIN(ts) a, MAX(ts) b FROM events WHERE account = ?').get(a.id);
       const span = n.a ? dim(`${new Date(Number(n.a)).toISOString().slice(0, 10)} → ${new Date(Number(n.b)).toISOString().slice(0, 10)}`) : '';

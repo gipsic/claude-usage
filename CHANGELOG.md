@@ -6,6 +6,10 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- macOS: when the Claude Code token has expired, usage is polled with the **Claude desktop app's own token** instead of going stale. It is read from the app's encrypted store (`oauth:tokenCacheV2` in its `config.json`, AES-128-CBC under the `Claude Safe Storage` keychain item), used only for the same read-only `/api/oauth/usage` call, and never refreshed, rewritten or uploaded — the app keeps it fresh itself. The first read asks for Keychain permission (*Always Allow*); every failure is reported by name (`keychain-timeout`, `keychain-no-item`, `decrypt-failed`, …) and simply falls back, never throwing inside the daemon.
+- `claude-usage doctor` reports the desktop-app token (readable, or the named reason) and when the active token expires.
+
 ## [1.0.4] — 2026-09-07
 
 ### Fixed
