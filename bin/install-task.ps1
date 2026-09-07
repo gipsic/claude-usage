@@ -51,8 +51,12 @@ if ($node -match '\\AnthropicClaude\\' -or $node -match '\\Claude\\app-[\d.]+\\'
   Fail "the node found on PATH is the one bundled inside Claude Desktop ($node). Install Node.js 22+ from https://nodejs.org."
 }
 
-$major = [int](& $node -p 'process.versions.node.split(".")[0]')
-if ($major -lt 22) { Fail "node $major is too old; claude-usage needs 22 or newer." }
+# `node --version`, not `node -p '...'`: PowerShell rewrites the quoting of
+# arguments to native commands, and the inner quotes of a JS expression do not
+# survive the trip.
+$ver = (& $node --version) -replace '^v', ''
+$major = [int]($ver.Split('.')[0])
+if ($major -lt 22) { Fail "node $ver is too old; claude-usage needs 22 or newer." }
 
 if (-not (Test-Path $Main)) { Fail "src\main.mjs not found under $Root" }
 New-Item -ItemType Directory -Force -Path (Join-Path $Data 'logs') | Out-Null

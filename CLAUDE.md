@@ -127,6 +127,9 @@ red commit onto main. GitHub Actions YAML: never put `${{ }}` inside `{ }` flow
 mappings (broke parsing → 0 jobs, no logs). CI runs macos-latest, ubuntu-latest **and windows-latest**
 on Node 22/24 (Linux since 1.1.0, Windows since 1.2.0); the Windows job has its
 own smoke and PowerShell-parse steps because the others are POSIX shell.
+A `file://` URL's `pathname` is `/C:/…` on Windows, so `path.join`ing it yields
+`D:\D:\…` — always `fileURLToPath`. (This broke the fixture generator the first
+time the Windows job ran.)
 **Renaming a CI job orphans branch protection**: `main`'s required status checks
 are stored as literal job names, so putting the OS into the matrix name left
 every PR unmergeable ("base branch policy prohibits the merge") until
@@ -199,6 +202,9 @@ Windows desktop. Say so when asked; the README and CHANGELOG label it beta.
   prints a warning naming any that Windows kept. Guards: refuses an
   `AppData\Local\Packages\` path (MSIX virtualisation) and refuses the node
   bundled in Claude Desktop (`\AnthropicClaude\`), plus a node >= 22 check.
+- PowerShell rewrites the quoting of arguments to *native* commands: `& $node -p
+  'x.split(".")[0]'` reached node as `x.split(.)[0]`. Parse `node --version` in
+  PowerShell instead of asking node to evaluate a quoted expression.
 - Execution policy: the CLI always invokes `powershell -NoProfile
   -ExecutionPolicy Bypass -File`, so a default `Restricted` policy cannot block
   the bundled scripts.
