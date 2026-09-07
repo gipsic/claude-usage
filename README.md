@@ -561,6 +561,10 @@ inside Claude Desktop, because neither survives an app update.
 
 > **Windows is unverified on real hardware.** It is exercised by CI on
 > `windows-latest` — the tests, the CLI, `install-daemon --dry-run` — but nobody
-> has yet registered the task, seen a toast, or signed in through the console on
-> an actual Windows desktop. Treat 1.2.0 on Windows as a beta and please
-> [report what breaks](https://github.com/gipsic/claude-usage/issues).
+> has yet registered the task, seen a toast, signed in through the console, or
+> unwrapped the desktop app's token on an actual Windows desktop. Treat Windows
+> as a beta and please
+> [report what breaks](https://github.com/gipsic/claude-usage/issues). If you are
+> willing to check it properly, [docs/windows-test-plan.md](docs/windows-test-plan.md)
+> is the ordered checklist — what to install first, what a pass looks like at
+> each step, and what to capture when something fails.
