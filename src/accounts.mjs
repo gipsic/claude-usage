@@ -130,7 +130,7 @@ export function loginHints(acct) {
   return {
     interactive: `${prefix}claude`,
     switchAccount: `${prefix}claude /login`,
-    token: `${prefix}claude setup-token`,
+    token: null,  // no long-lived alternative: setup-token is rejected by the usage endpoint
     isDefault,
   };
 }

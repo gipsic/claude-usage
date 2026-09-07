@@ -499,10 +499,6 @@ const COMMANDS = {
     console.log('  Or straight from Claude Code:');
     console.log(`    ${blu(h.switchAccount)}`);
     console.log('');
-    console.log('  Or mint a long-lived token and hand it to claude-usage:');
-    console.log(`    ${blu(h.token)}`);
-    console.log(`    ${blu(`claude-usage accounts token ${a.id} <paste-token>`)}`);
-    console.log('');
     const v = await Acct.verify(id);
     console.log(v.ok
       ? `  ${grn('✓')} already connected — Anthropic returned live limits for this account`

@@ -272,15 +272,12 @@ issues a year-long token, but the usage endpoint rejects it (401 — its scope i
 require presenting Claude Code's OAuth client identity, which this project
 deliberately does not do; tools that never go stale do exactly that.
 
-Manual routes, if you prefer:
+Prefer the terminal? Sign in there instead:
 
 ```bash
 # Sign in / switch the account in a config directory
 CLAUDE_CONFIG_DIR=~/.claude-work claude /login
 
-# …or mint a long-lived token and hand it to claude-usage
-CLAUDE_CONFIG_DIR=~/.claude-work claude setup-token
-claude-usage accounts token work <paste-token>
 ```
 
 Then press **Verify** in the dashboard (or `claude-usage login work`) to confirm

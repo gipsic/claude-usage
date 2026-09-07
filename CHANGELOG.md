@@ -6,6 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- A saved/pasted token the usage endpoint rejects (401) is dropped automatically so it cannot shadow a valid keychain login. (`claude setup-token` was evaluated as a long-lived credential; the endpoint answers 401 to it, so sign-in stays on `auth login` and the mint-and-paste route was removed from the UI and docs.)
+
 ## [1.0.3] — 2026-09-06
 
 ### Fixed

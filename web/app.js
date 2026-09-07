@@ -423,17 +423,6 @@ function signInDialog(a) {
         <button type="button" class="btn" id="li-copy">Copy</button></div>
     </div>
     <div class="err" id="li-err" hidden></div>
-    <details id="li-manual">
-      <summary>Other ways to sign in</summary>
-      <div style="margin-top:8px;display:grid;gap:8px">
-        <p>Mint a long-lived token and paste it here:</p>
-        ${copyBtn(a.hints.token)}
-        <label>OAuth token
-          <textarea id="tok" placeholder="sk-ant-oat…" spellcheck="false" autocomplete="off"></textarea>
-        </label>
-        <div class="row"><button class="btn" type="button" id="tok-save">Save token</button></div>
-      </div>
-    </details>
     <div class="row"><button class="btn" value="cancel">Close</button></div>`, (d, body) => {
     wireCopy(body);
     const err = body.querySelector('#li-err');
@@ -503,17 +492,6 @@ function signInDialog(a) {
       } catch (e) { fail(e.message); }
     });
 
-    body.querySelector('#tok-save').addEventListener('click', async () => {
-      const token = body.querySelector('#tok').value.trim();
-      if (!token) return fail('Paste the token first.');
-      try {
-        const r = await post('/api/accounts', { action: 'token', id: a.id, token });
-        renderAccounts(r.accounts);
-        const v = await post('/api/accounts', { action: 'verify', id: a.id });
-        if (!v.ok) return fail(`Saved, but the usage endpoint rejected it: ${v.error}`);
-        d.close(); refreshAll();
-      } catch (e) { fail(e.message); }
-    });
   });
 }
 
