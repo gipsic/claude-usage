@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { readToken, allKeychainTokens } from './oauth.mjs';
-import { IS_MAC, terminalLaunchers, hasDisplay } from './platform.mjs';
+import { IS_MAC, IS_WINDOWS, terminalLaunchers, hasDisplay, which } from './platform.mjs';
 
 /**
  * Browser sign-in, driven through Claude Code's own `claude auth login`.
@@ -31,6 +32,11 @@ export function findClaude() {
   const home = os.homedir();
   const direct = [
     process.env.CLAUDE_CLI,
+    // Windows npm installs a .cmd shim; the .claude/local copy has no extension.
+    ...(IS_WINDOWS ? [
+      path.join(home, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+      path.join(home, '.claude', 'local', 'claude.cmd'),
+    ] : []),
     path.join(home, '.claude', 'local', 'claude'),
     path.join(home, '.local', 'bin', 'claude'),
     '/opt/homebrew/bin/claude',
@@ -39,11 +45,8 @@ export function findClaude() {
   for (const c of direct) {
     try { if (fs.statSync(c).isFile()) return c; } catch { /* next */ }
   }
-  for (const dir of (process.env.PATH || '').split(':')) {
-    if (!dir) continue;
-    const c = path.join(dir, 'claude');
-    try { fs.accessSync(c, fs.constants.X_OK); return c; } catch { /* next */ }
-  }
+  const onPath = which('claude');
+  if (onPath) return onPath;
   for (const base of [path.join(home, '.nvm', 'versions', 'node'),
                       path.join(home, 'Library', 'Application Support', 'fnm', 'node-versions'),
                       path.join(home, '.local', 'share', 'fnm', 'node-versions')]) {
@@ -64,7 +67,11 @@ export function findClaude() {
 export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
   const cli = findClaude() || 'claude';
   const isDefault = !configDir || configDir === path.join(os.homedir(), '.claude');
-  const prefix = isDefault ? '' : `CLAUDE_CONFIG_DIR="${configDir}" `;
+  // The display string is what the dashboard shows a user to run by hand, so it
+  // has to be typeable in that platform's shell.
+  const prefix = isDefault ? ''
+    : IS_WINDOWS ? `set "CLAUDE_CONFIG_DIR=${configDir}" && `
+    : `CLAUDE_CONFIG_DIR="${configDir}" `;
   if (mode === 'setup-token') {
     // Long-lived token for non-interactive use. Kept as an explicit option only:
     // tested 2026-09-07, the usage endpoint answers 401 to it (scope is
@@ -85,8 +92,9 @@ export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
  * closed, so waiting on the child would hang the request.
  */
 export function signInScript({ file, configDir, mode, accountId } = {}) {
+  if (IS_WINDOWS) return signInBatch({ file, configDir, mode });
   const { argv, display, isDefault } = loginCommand({ configDir, mode });
-  const selfBin = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'claude-usage');
+  const selfBin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'claude-usage');
   const q = (v) => `'${String(v).replace(/'/g, `'\\''`)}'`;
   const cmd = argv.map(q).join(' ');
   const capture = `${file}.capture`;
@@ -137,12 +145,53 @@ export function signInScript({ file, configDir, mode, accountId } = {}) {
   ].filter(Boolean).join('\n') + '\n';
 }
 
+/**
+ * The same flow as a batch file, for the Windows console.
+ *
+ * `setup-token` has no counterpart here: capturing a printed token needs
+ * script(1), and that route was removed anyway - the usage endpoint rejects
+ * setup-tokens. `start` is what opens the window, so the script only has to end
+ * with `pause` for the outcome to stay readable.
+ */
+function signInBatch({ file, configDir, mode }) {
+  const { argv, display, isDefault } = loginCommand({ configDir, mode });
+  const q = (v) => `"${String(v).replace(/"/g, '')}"`;
+  const cmd = [q(argv[0]), ...argv.slice(1)].join(' ');
+  // Batch swallows a literal % and reads ^ & | < > as syntax; the display line
+  // is the only place user-supplied text is echoed.
+  const echoSafe = (v) => String(v).replace(/[\^&|<>()]/g, '^$&').replace(/%/g, '%%');
+  return [
+    '@echo off',
+    'rem Opened by claude-usage. Closes itself once sign-in finishes.',
+    `> ${q(file + '.started')} echo.`,   // proof the window really opened
+    `del ${q(file)} 2>nul`,              // no leftovers if the login is abandoned
+    'cls',
+    'echo Signing in to Claude - approve in the browser window that opens.',
+    `echo   ${echoSafe(display)}`,
+    'echo.',
+    // Only set it for a genuinely separate profile: pointing CLAUDE_CONFIG_DIR
+    // at the default profile is NOT a no-op - Claude Code then treats it as a
+    // custom profile and stores the login somewhere else entirely.
+    isDefault ? '' : `set "CLAUDE_CONFIG_DIR=${configDir}"`,
+    mode === 'setup-token'
+      ? 'echo setup-token is not supported on Windows.& exit /b 1'
+      : `call ${cmd}`,
+    'set STATUS=%ERRORLEVEL%',
+    'echo.',
+    'if "%STATUS%"=="0" (echo Signed in.) else (echo Sign-in did not complete ^(exit %STATUS%^).)',
+    `del ${q(file + '.started')} 2>nul`,
+    'pause',
+    'exit /b %STATUS%',
+  ].filter(Boolean).join('\r\n') + '\r\n';
+}
+
 function openInTerminal({ id, configDir, mode, accountId }) {
   const dir = path.join(DATA_HOME(), 'login');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const file = path.join(dir, `signin-${id}.${IS_MAC ? 'command' : 'sh'}`);
+  const ext = IS_MAC ? 'command' : IS_WINDOWS ? 'cmd' : 'sh';
+  const file = path.join(dir, `signin-${id}.${ext}`);
   fs.writeFileSync(file, signInScript({ file, configDir, mode, accountId }), { mode: 0o700 });
-  fs.chmodSync(file, 0o700);
+  if (!IS_WINDOWS) fs.chmodSync(file, 0o700);
 
   // A launchd agent is not attached to the Aqua session the way a login shell is.
   // `open` still exits 0 there while Terminal never runs the file, so its exit
@@ -188,6 +237,11 @@ function openInTerminal({ id, configDir, mode, accountId }) {
       return { ok: false, file, error: hasDisplay()
         ? 'no terminal emulator found (looked for x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, alacritty, kitty, foot, xterm)'
         : 'no graphical session: DISPLAY and WAYLAND_DISPLAY are both unset' };
+    }
+    // A scheduled task runs in session 0 with no desktop, so the console it
+    // starts would be invisible; the caller falls back to showing the command.
+    if (IS_WINDOWS && process.env.CLAUDE_USAGE_NO_CONSOLE) {
+      return { ok: false, file, error: 'no interactive desktop for a console window' };
     }
 
     const errors = [];

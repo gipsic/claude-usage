@@ -10,7 +10,7 @@ endpoint directly. Nothing leaves the machine.
 [![CI](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node 22+](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
-![macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![macOS | Linux | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
 [![npm](https://img.shields.io/npm/v/%40gipsic%2Fclaude-usage?label=npm)](https://www.npmjs.com/package/@gipsic/claude-usage)
 [![Release](https://img.shields.io/github/v/release/gipsic/claude-usage)](https://github.com/gipsic/claude-usage/releases)
 [![Socket](https://badge.socket.dev/npm/package/@gipsic/claude-usage)](https://socket.dev/npm/package/@gipsic/claude-usage)
@@ -29,6 +29,14 @@ launchd agent at login, builds `Claude Usage.app`, and opens the dashboard at
 **http://127.0.0.1:4778**. On **Linux** it installs to
 `~/.local/share/claude-usage` and starts a `systemd --user` service instead
 (no menu-bar app). Re-run it to upgrade. Nothing needs `sudo`.
+
+On **Windows** there is no shell installer — use npm:
+
+```powershell
+npm install -g @gipsic/claude-usage
+claude-usage install-daemon        # a scheduled task that starts at logon
+claude-usage serve --open
+```
 
 Or with npm (Node users), which also puts `claude-usage` on your PATH:
 
@@ -72,9 +80,10 @@ Claude and a Mac, you can help — and you don't need to write code:
   you can send. Open an [issue](https://github.com/gipsic/claude-usage/issues).
 - **Share it** with the people you know who are always wondering how much of
   their 5-hour window is left.
-- **Test the Linux build.** It is new: transcripts, the credential file, the
-  dashboard and a systemd user service all work, but it has had far fewer miles
-  than the Mac. Windows is still unported.
+- **Test the Linux and Windows builds.** Both are new. Linux runs in CI and has
+  been exercised by hand; the Windows port has only ever run in CI — nobody has
+  installed the scheduled task, seen a toast or completed a browser sign-in on a
+  real Windows machine. If you have one, that report is worth a lot.
 - **Build the native menu-bar app** we don't have yet, on top of the local API.
 - **Help pin down how limits are weighted.** We fit it from data; more accounts
   make the fit better.
@@ -325,13 +334,17 @@ claude-usage uninstall-daemon
 ```
 
 On macOS this installs a per-user launchd agent (`com.claude-usage.tracker`);
-on Linux a `systemd --user` unit (`claude-usage.service`). Either one starts at
-login, restarts if it exits, and keeps scanning and polling whether or not a
-browser is open. Logs land in `~/.claude-usage/logs/` (macOS) or
+on Linux a `systemd --user` unit (`claude-usage.service`); on Windows a scheduled
+task (`claude-usage`) that runs at logon through a hidden-window launcher, so no
+console flashes up. All three start at login, restart if they exit, and keep
+scanning and polling whether or not a browser is open. Logs land in
+`~/.claude-usage/logs/` (macOS, Windows) or
 `journalctl --user -u claude-usage.service` (Linux). The macOS agent runs in your
 GUI session, so keychain access works — macOS may prompt once to allow it. On
 Linux, `sudo loginctl enable-linger $USER` keeps the tracker running after you
-log out.
+log out. On Windows the installer sets the three Task Scheduler options that
+would otherwise stop the tracker on battery, then reads them back and tells you
+if Windows kept its own defaults anyway.
 
 ### As an app in Login Items
 
@@ -520,9 +533,9 @@ looks wrong.
 
 ## Requirements
 
-macOS or Linux with Node.js 22 or newer. No npm dependencies — the launcher finds
-Node even when it's managed by nvm, fnm or Volta and therefore missing from a
-launchd, systemd or GUI `PATH`.
+macOS, Linux or Windows with Node.js 22 or newer. No npm dependencies — the
+launcher finds Node even when it's managed by nvm, fnm or Volta and therefore
+missing from a launchd, systemd or GUI `PATH`.
 
 **What differs on Linux.** Claude Code stores its token in plaintext at
 `~/.claude/.credentials.json`, which is read directly — there is no keychain step
@@ -533,3 +546,19 @@ history starts the day you install this. Notifications go through `notify-send`,
 browser sign-in opens whichever terminal emulator you have, and there is no
 menu-bar app. Everything else — transcripts, costs, charts, the API polling — is
 identical.
+
+**What differs on Windows.** The same picture as Linux — plaintext credentials at
+`%USERPROFILE%\.claude\.credentials.json`, no desktop-app cache or token — plus:
+the background job is a scheduled task rather than a service; notifications are
+Windows toasts raised through PowerShell; sign-in opens a console window running
+`claude auth login`; and `claude-usage setup-token` has no counterpart (it needs
+`script(1)`, and that route is a dead end anyway). Install with npm — the shell
+installer is POSIX-only. The installer refuses to register a task from an
+MSIX-virtualised path (`AppData\Local\Packages\…`) or against the Node bundled
+inside Claude Desktop, because neither survives an app update.
+
+> **Windows is unverified on real hardware.** It is exercised by CI on
+> `windows-latest` — the tests, the CLI, `install-daemon --dry-run` — but nobody
+> has yet registered the task, seen a toast, or signed in through the console on
+> an actual Windows desktop. Treat 1.2.0 on Windows as a beta and please
+> [report what breaks](https://github.com/gipsic/claude-usage/issues).

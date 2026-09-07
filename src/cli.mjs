@@ -13,7 +13,7 @@ import * as A from './analytics.mjs';
 import * as Acct from './accounts.mjs';
 import { readDesktopHistory, DESKTOP_HISTORY } from './desktop.mjs';
 import * as WebLogin from './weblogin.mjs';
-import { IS_MAC, openUrl } from './platform.mjs';
+import { IS_MAC, IS_WINDOWS, openUrl, defaultEditor } from './platform.mjs';
 
 const ROOT = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const ESC = '\u001b';
@@ -176,6 +176,18 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
   L.push(`Accounts | href=${base}#accounts-panel sfimage=person.2`);
   L.push('Anthropic status | href=https://status.anthropic.com sfimage=waveform.path.ecg');
   return L.join('\n');
+}
+
+/**
+ * Run one of the bundled PowerShell scripts.
+ *
+ * -ExecutionPolicy Bypass because the default policy on Windows client editions
+ * refuses to run a downloaded .ps1 at all, and this one ships inside the package.
+ */
+function runPowerShell(script, args) {
+  execFileSync('powershell', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(ROOT, 'bin', script), ...args,
+  ], { stdio: 'inherit' });
 }
 
 const COMMANDS = {
@@ -517,17 +529,20 @@ const COMMANDS = {
   config(rt, { rest }) {
     ensureConfig();
     if (rest[0] === 'path') return console.log(CONFIG_PATH);
-    if (rest[0] === 'edit') return execFileSync(process.env.EDITOR || (IS_MAC ? 'open' : 'xdg-open'), [CONFIG_PATH], { stdio: 'inherit' });
+    if (rest[0] === 'edit') return execFileSync(process.env.EDITOR || defaultEditor(), [CONFIG_PATH], { stdio: 'inherit' });
     console.log(JSON.stringify(rt.cfg, null, 2));
   },
 
-  // launchd on macOS, a systemd --user service on Linux; both start the tracker
-  // at login and restart it if it dies.
+  // launchd on macOS, a systemd --user service on Linux, a scheduled task on
+  // Windows; all three start the tracker at login and restart it if it dies.
   'install-daemon'(rt, { flags }) {
+    const port = String(flags.port || rt.cfg.port);
+    if (IS_WINDOWS) return runPowerShell('install-task.ps1', ['-Port', port, ...(flags['dry-run'] ? ['-DryRun'] : [])]);
     execFileSync(path.join(ROOT, 'bin', IS_MAC ? 'install-daemon.sh' : 'install-systemd.sh'),
-      [String(flags.port || rt.cfg.port)], { stdio: 'inherit' });
+      [port], { stdio: 'inherit' });
   },
   'uninstall-daemon'() {
+    if (IS_WINDOWS) return runPowerShell('uninstall-task.ps1', []);
     execFileSync(path.join(ROOT, 'bin', IS_MAC ? 'uninstall-daemon.sh' : 'uninstall-systemd.sh'),
       { stdio: 'inherit' });
   },

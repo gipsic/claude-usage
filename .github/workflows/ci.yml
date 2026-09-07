@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         node: [22, 24]
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +20,27 @@ jobs:
       - run: node -v
       - run: npm test
       - name: smoke the CLI
+        if: runner.os != 'Windows'
         run: |
           ./claude-usage --version
           CLAUDE_USAGE_HOME="$RUNNER_TEMP/cu" CLAUDE_USAGE_NO_KEYCHAIN=1 ./claude-usage doctor
+      - name: smoke the CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          node bin/cli.js --version
+          $env:CLAUDE_USAGE_HOME = "$env:RUNNER_TEMP\cu"
+          node bin/cli.js doctor
       - name: shell scripts parse
+        if: runner.os != 'Windows'
         run: for f in claude-usage install.sh uninstall.sh bin/*.sh; do sh -n "$f"; done
+      - name: PowerShell scripts parse
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem bin/*.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) > $null
+            if ($errors) { $errors; exit 1 }
+          }
+          node bin/cli.js install-daemon --dry-run

@@ -1,10 +1,10 @@
 {
   "name": "@gipsic/claude-usage",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your own machine, from your own data.",
   "bin": {
-    "claude-usage": "claude-usage"
+    "claude-usage": "bin/cli.js"
   },
   "engines": {
     "node": ">=22"
@@ -30,7 +30,8 @@
     "limits",
     "dashboard",
     "macos",
-    "linux"
+    "linux",
+    "windows"
   ],
   "files": [
     "claude-usage",
@@ -48,13 +49,18 @@
     "README.md",
     "QUICKSTART.th.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "bin/cli.js",
+    "bin/install-task.ps1",
+    "bin/uninstall-task.ps1",
+    "bin/run-hidden.vbs"
   ],
   "publishConfig": {
     "access": "public"
   },
   "os": [
     "darwin",
-    "linux"
+    "linux",
+    "win32"
   ]
 }
