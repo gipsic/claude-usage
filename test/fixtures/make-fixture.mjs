@@ -1,6 +1,7 @@
+import { fileURLToPath } from 'node:url';
 // Generates test/fixtures/projects/-Users-x-proj/*.jsonl deterministically.
 import fs from 'node:fs'; import path from 'node:path';
-const root = new URL('./', import.meta.url).pathname;
+const root = fileURLToPath(new URL('./', import.meta.url));
 const proj = path.join(root, 'projects', '-Users-x-proj');
 fs.rmSync(path.join(root, 'projects'), { recursive: true, force: true });
 fs.mkdirSync(proj, { recursive: true });
