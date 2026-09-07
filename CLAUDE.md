@@ -122,7 +122,13 @@ and copies `test/fixtures/` **per process** (a shared copy raced between
 `{"data":{...}}` stands in for the endpoint. **Gate every push on the exit code
 of `npm test` (run 3×)** — an `&&` chain that only greps the summary once let a
 red commit onto main. GitHub Actions YAML: never put `${{ }}` inside `{ }` flow
-mappings (broke parsing → 0 jobs, no logs).
+mappings (broke parsing → 0 jobs, no logs). CI runs macos-latest **and
+ubuntu-latest** on Node 22/24 since 1.1.0.
+**Renaming a CI job orphans branch protection**: `main`'s required status checks
+are stored as literal job names, so putting the OS into the matrix name left
+every PR unmergeable ("base branch policy prohibits the merge") until
+`repos/:owner/:repo/branches/main/protection/required_status_checks` was PATCHed
+to the four new names. Rename a job → update that list in the same change.
 
 ## Release process
 
