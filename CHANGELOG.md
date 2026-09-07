@@ -13,7 +13,7 @@ All notable changes are recorded here. The format follows
 - Numbers older than 20 minutes are badged `stale · Xm ago` instead of `live`, and an expired sign-in token is stated in the Limits header with what renews it.
 - `Claude Usage.app` (Login Item) no longer starts a second server when the launchd agent is installed — it kickstarts the agent instead. The race left the agent crash-looping on a busy port at login.
 - `serve` exits with a clear message when its port is taken (launchd retries every 60 s instead of 10 s).
-- Test suite: each test process now works on its own copy of the fixtures, fixing an intermittent 15-vs-16 count between `scanner.test` and `server.test`.
+- Test suite is hermetic: `CLAUDE_USAGE_OFFLINE` keeps it off the network (a fake token was reaching api.anthropic.com and being auto-dropped on 401, failing CI), and `CLAUDE_USAGE_MOCK_USAGE` stands in for the endpoint. Each test process now works on its own copy of the fixtures, fixing an intermittent 15-vs-16 count between `scanner.test` and `server.test`.
 
 ### Changed
 - A saved/pasted token the usage endpoint rejects (401) is dropped automatically so it cannot shadow a valid keychain login. (`claude setup-token` was evaluated as a long-lived credential; the endpoint answers 401 to it, so sign-in stays on `auth login` and the mint-and-paste route was removed from the UI and docs.)

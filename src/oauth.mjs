@@ -169,6 +169,16 @@ export function accountInfo(configDir) {
 
 /** GET the usage endpoint. Returns { ok, data } or { ok:false, status, error, retryAfter }. */
 export async function fetchUsage({ configDir, accountId, timeoutMs = 15_000 } = {}) {
+  // Tests and sandboxes must never reach the network. CLAUDE_USAGE_OFFLINE makes
+  // every poll a no-op; CLAUDE_USAGE_MOCK_USAGE ('{"status":401}' or
+  // '{"data":{...}}') stands in for the endpoint so the callers' handling of
+  // its answers can be exercised deterministically.
+  if (process.env.CLAUDE_USAGE_MOCK_USAGE) {
+    const mock = JSON.parse(process.env.CLAUDE_USAGE_MOCK_USAGE);
+    if (mock.data) return { ok: true, data: mock.data, source: 'mock' };
+    return { ok: false, status: mock.status ?? 500, error: mock.status === 401 ? 'http-401' : `http-${mock.status ?? 500}` };
+  }
+  if (process.env.CLAUDE_USAGE_OFFLINE) return { ok: false, error: 'offline' };
   const cred = readToken({ configDir, accountId });
   if (!cred) return { ok: false, error: 'no-credentials' };
   if (cred.expiresAt && cred.expiresAt < Date.now()) {

@@ -14,6 +14,7 @@ export function tempHome({ accounts } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-test-'));
   process.env.CLAUDE_USAGE_HOME = dir;
   process.env.CLAUDE_USAGE_NO_KEYCHAIN = '1';
+  process.env.CLAUDE_USAGE_OFFLINE = '1';        // the suite never touches api.anthropic.com
   process.env.CLAUDE_USAGE_DESKTOP_HISTORY = path.join(dir, 'no-desktop-cache.json');
   fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({
     port: 0, pollSeconds: 300, scanSeconds: 30,
