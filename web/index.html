@@ -161,8 +161,57 @@
   <section class="panel">
     <div class="panel-head">
       <h2>Alerts</h2>
-      <span class="hint">threshold, reset and burn-rate notifications already delivered</span>
+      <div class="alert-head-right">
+        <span class="hint" id="alert-state"></span>
+        <button class="btn" id="alert-settings-toggle" aria-expanded="false">Settings</button>
+      </div>
     </div>
+
+    <form class="alert-settings" id="alert-settings" hidden>
+      <div class="as-row">
+        <label class="as-switch">
+          <input type="checkbox" id="as-enabled">
+          <span>Notifications on</span>
+        </label>
+        <div class="as-mute">
+          <span class="hint">Silence for</span>
+          <button type="button" class="btn" data-mute="1">1h</button>
+          <button type="button" class="btn" data-mute="2">2h</button>
+          <button type="button" class="btn" data-mute="8">8h</button>
+          <button type="button" class="btn" id="as-unmute" hidden>Unmute</button>
+        </div>
+      </div>
+
+      <div class="as-grid" id="as-thresholds"></div>
+
+      <div class="as-grid">
+        <label class="as-field">
+          <span>Reset reminder (minutes)</span>
+          <input type="text" id="as-reminder" inputmode="numeric" placeholder="15">
+        </label>
+        <label class="as-field">
+          <span>Quiet hours</span>
+          <span class="as-quiet">
+            <input type="time" id="as-quiet-start"><span class="hint">to</span><input type="time" id="as-quiet-end">
+            <button type="button" class="btn" id="as-quiet-clear">Off</button>
+          </span>
+        </label>
+      </div>
+
+      <div class="as-row">
+        <label class="as-switch"><input type="checkbox" id="as-burn"><span>Burn-rate warning</span></label>
+        <label class="as-switch"><input type="checkbox" id="as-service"><span>Anthropic incidents</span></label>
+      </div>
+
+      <div class="as-row as-actions">
+        <span class="hint" id="as-msg">Muted alerts are still recorded — unmuting never replays a backlog.</span>
+        <span>
+          <button type="button" class="btn" id="as-test">Send test</button>
+          <button type="submit" class="btn primary" id="as-save">Save</button>
+        </span>
+      </div>
+    </form>
+
     <ul class="alerts" id="alerts"></ul>
   </section>
 

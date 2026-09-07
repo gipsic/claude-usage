@@ -82,3 +82,32 @@ test('a scoped weekly window reported by Anthropic surfaces as its own window', 
   const app = fs.readFileSync(new URL('../web/app.js', import.meta.url), 'utf8');
   assert.ok(!/['"]seven_day_opus['"]/.test(app), 'web/app.js hardcodes legacy window keys');
 });
+
+test('alert settings can be changed over the API without losing their neighbours', async () => {
+  const before = (await fetchJson(`${base}/api/config`)).body.alerts;
+
+  // A partial write must merge: posting only mutedUntil cannot wipe thresholds.
+  const muted = await fetch(`${base}/api/alerts`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'mute', hours: 2 }),
+  }).then((r) => r.json());
+  assert.ok(muted.alerts.mutedUntil > Date.now());
+  assert.deepEqual(muted.alerts.thresholds, before.thresholds);
+
+  const unmuted = await fetch(`${base}/api/alerts`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'unmute' }),
+  }).then((r) => r.json());
+  assert.equal(unmuted.alerts.mutedUntil, null);
+
+  const bad = await fetchJson(`${base}/api/alerts`);   // GET still lists history
+  assert.equal(bad.status, 200);
+
+  const saved = await fetch(`${base}/api/config`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alerts: { thresholds: { five_hour: [90] } } }),
+  }).then((r) => r.json());
+  assert.deepEqual(saved.config.alerts.thresholds.five_hour, [90]);
+  assert.equal(saved.config.alerts.burnWarning, before.burnWarning, 'untouched keys survive');
+  assert.equal(saved.config.port, (await fetchJson(`${base}/api/config`)).body.port);
+});

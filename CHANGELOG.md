@@ -6,6 +6,17 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-09-07
+
+### Added
+- **Alert settings you can actually reach.** The dashboard's Alerts panel gains a *Settings* form — the master switch, per-window thresholds, reset reminders, burn-rate and incident toggles, quiet hours, and one-click **mute for 1/2/8 hours** — and there is a matching `claude-usage alerts` command (`alerts`, `on`/`off`, `mute 2h`, `unmute`, `quiet 22:00-08:00`, `quiet off`, `set five_hour 80,95`, `test`). All of it was configurable before, but only by hand-editing `config.json`.
+- **Mute and quiet hours.** `alerts.mutedUntil` silences banners for a while; `alerts.quietHours` (`{ start, end }`, local time, may wrap past midnight) silences them nightly. A silenced alert is still *recorded*, so unmuting never replays a backlog into Notification Center.
+- `claude-usage alerts test` and the *Send test* button fire one notification immediately — the quickest way to check that banners work at all (useful on the Linux and Windows ports).
+
+### Fixed
+- The dashboard labelled a token from the Claude desktop app with its raw source string; it now reads "signed in · Claude app".
+- `POST /api/config` merges nested objects instead of replacing them, so writing one alert setting no longer drops the rest.
+
 ## [1.3.0] — 2026-09-07
 
 ### Added
@@ -89,7 +100,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/gipsic/claude-usage/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/gipsic/claude-usage/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/gipsic/claude-usage/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/gipsic/claude-usage/compare/v1.0.4...v1.1.0

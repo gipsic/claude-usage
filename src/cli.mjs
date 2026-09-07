@@ -7,12 +7,14 @@ import { scan } from './scanner.mjs';
 import { calibrate, loadCalibration, WINDOWS } from './limits.mjs';
 import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState } from './oauth.mjs';
 import { serviceStatus } from './status.mjs';
-import { CONFIG_PATH, ensureConfig } from './config.mjs';
+import { CONFIG_PATH, ensureConfig, saveConfig, deepMerge } from './config.mjs';
 import { DATA_DIR } from './db.mjs';
 import * as A from './analytics.mjs';
 import * as Acct from './accounts.mjs';
 import { readDesktopHistory, DESKTOP_HISTORY } from './desktop.mjs';
 import * as WebLogin from './weblogin.mjs';
+import { silencedBy, inQuietHours } from './alerts.mjs';
+import { notify } from './notify.mjs';
 import { IS_MAC, IS_WINDOWS, openUrl, defaultEditor } from './platform.mjs';
 
 const ROOT = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..');
@@ -533,6 +535,90 @@ const COMMANDS = {
     console.log(JSON.stringify(rt.cfg, null, 2));
   },
 
+  /**
+   * Read and change the alert settings without hand-editing config.json.
+   *
+   *   alerts                          show what is set
+   *   alerts on | off                 the master switch
+   *   alerts mute 2h | unmute         silence banners, keep recording
+   *   alerts quiet 22:00-08:00 | off  nightly silence
+   *   alerts set five_hour 80,95      thresholds for one window ("" clears)
+   *   alerts test                     send one notification now
+   */
+  alerts(rt, { rest }) {
+    const cfg = ensureConfig();
+    const a = { ...cfg.alerts };
+    const write = (patch) => { rt.cfg = saveConfig(deepMerge(rt.cfg, { alerts: patch })); return show(); };
+    const [verb, ...args] = rest;
+
+    const show = () => {
+      const now = Date.now();
+      const cur = (rt.cfg = ensureConfig()).alerts;
+      const why = silencedBy(rt.cfg, now);
+      console.log('');
+      console.log(`  ${bold('alerts')}              ${cur.enabled ? grn('on') : red('off')}${
+        why ? yel(`  (silenced: ${why})`) : ''}`);
+      for (const [win, list] of Object.entries(cur.thresholds || {})) {
+        console.log(`    ${win.padEnd(16)}  ${list.length ? list.map((t) => `${t}%`).join(' ') : dim('none')}`);
+      }
+      console.log(`    ${'reset reminder'.padEnd(16)}  ${(cur.resetReminderMinutes || []).map((m) => `${m}m`).join(' ') || dim('none')}`);
+      console.log(`    ${'burn warning'.padEnd(16)}  ${cur.burnWarning ? 'on' : dim('off')}`);
+      console.log(`    ${'service status'.padEnd(16)}  ${cur.serviceStatus ? 'on' : dim('off')}`);
+      console.log(`    ${'quiet hours'.padEnd(16)}  ${cur.quietHours
+        ? `${cur.quietHours.start}–${cur.quietHours.end}${inQuietHours(cur.quietHours, now) ? yel('  (now)') : ''}`
+        : dim('off')}`);
+      console.log(`    ${'muted until'.padEnd(16)}  ${cur.mutedUntil && cur.mutedUntil > now
+        ? new Date(cur.mutedUntil).toLocaleString() : dim('not muted')}`);
+      console.log('');
+      console.log(dim('    alerts on|off · mute 2h · unmute · quiet 22:00-08:00 · quiet off'));
+      console.log(dim('    alerts set five_hour 80,95 · alerts test'));
+      console.log('');
+    };
+
+    if (!verb) return show();
+    if (verb === 'on') return write({ enabled: true });
+    if (verb === 'off') return write({ enabled: false });
+    if (verb === 'unmute') return write({ mutedUntil: null });
+
+    if (verb === 'mute') {
+      const m = /^(\d+(?:\.\d+)?)\s*(m|min|h|hr|hours?|d)?$/i.exec(args[0] || '2h');
+      if (!m) throw new Error('mute takes a duration like 30m, 2h or 1d');
+      const unit = (m[2] || 'h').toLowerCase();
+      const ms = Number(m[1]) * (unit.startsWith('m') ? 60e3 : unit.startsWith('d') ? 864e5 : 3600e3);
+      return write({ mutedUntil: Date.now() + ms });
+    }
+
+    if (verb === 'quiet') {
+      if (!args[0] || args[0] === 'off') return write({ quietHours: null });
+      const m = /^(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/.exec(args.join(''));
+      if (!m) throw new Error('quiet takes a range like 22:00-08:00, or "off"');
+      const q = { start: m[1], end: m[2] };
+      // A range that starts and ends at the same minute silences nothing; say so
+      // rather than storing a setting the evaluator will ignore.
+      if (q.start === q.end) throw new Error('quiet hours cannot start and end at the same minute');
+      return write({ quietHours: q });
+    }
+
+    if (verb === 'set') {
+      const win = args[0];
+      if (!win) throw new Error('set takes a window: five_hour, seven_day, seven_day_* or seven_day_<model>');
+      const list = (args[1] || '').split(/[,\s]+/).filter(Boolean).map(Number);
+      if (list.some((n) => !Number.isFinite(n) || n <= 0 || n > 100)) {
+        throw new Error('thresholds are percentages between 1 and 100, e.g. 80,95');
+      }
+      return write({ thresholds: { ...a.thresholds, [win]: list.sort((x, y) => x - y) } });
+    }
+
+    if (verb === 'test') {
+      notify({ title: 'claude-usage', subtitle: 'test notification',
+        message: 'If you can see this, alerts can reach you.' });
+      console.log('  Sent a test notification.');
+      return;
+    }
+
+    throw new Error(`unknown alerts command: ${verb}`);
+  },
+
   // launchd on macOS, a systemd --user service on Linux, a scheduled task on
   // Windows; all three start the tracker at login and restart it if it dies.
   'install-daemon'(rt, { flags }) {
@@ -564,6 +650,7 @@ ${bold('claude-usage')} — usage, limit tracking and history for Claude Code
   ${bold('menubar')} [--format swiftbar]     status line for xbar / SwiftBar
   ${bold('accounts')} [add|remove|rename|token]  list / manage accounts
   ${bold('login')}   [id] [--web]            browser sign-in (--web), or show how and verify
+  ${bold('alerts')}  [on|off|mute 2h|quiet 22:00-08:00|set W 80,95|test]
   ${bold('status')}                          Anthropic service status
   ${bold('doctor')}                          verify data sources and credentials
   ${bold('config')}  [path|edit]             show / edit configuration

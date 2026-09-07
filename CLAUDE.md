@@ -29,7 +29,7 @@ src/limits.mjs        limit windows, calibration (weighting fit), reset inferenc
 src/analytics.mjs     series/activity/blocks/breakdown/insights/timeline/csv
 src/accounts.mjs      multi-account (per CLAUDE_CONFIG_DIR), saved tokens (0600)
 src/weblogin.mjs      browser sign-in by launching `claude auth login` in Terminal.app
-src/alerts.mjs        thresholds / reset reminders / burn warnings → macOS notifications
+src/alerts.mjs        thresholds / reset reminders / burn warnings; mute + quiet hours
 src/pricing.mjs       per-model prices + candidate limit-weighting schemes (WEIGHTS)
 web/                  dashboard (vanilla JS, custom SVG charts, no CDN)
 bin/                  install-daemon.sh, make-app.sh, menu-bar plugin, build-binary.sh
@@ -117,7 +117,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 53 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 57 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or

@@ -136,6 +136,19 @@ and the unit the limit calibration is expressed in.
 a warning when your burn rate will exhaust a window before it resets, and
 Anthropic service incidents.
 
+Change any of it from the dashboard (**Alerts → Settings**) or the terminal:
+
+```bash
+claude-usage alerts                      # what is set right now
+claude-usage alerts mute 2h              # silence banners, keep recording
+claude-usage alerts quiet 22:00-08:00    # nightly silence
+claude-usage alerts set five_hour 80,95  # thresholds for one window
+claude-usage alerts test                 # does a notification reach me at all?
+```
+
+A muted or quiet-hours alert is still recorded, so unmuting never dumps a
+backlog of banners at you.
+
 ## Feature parity with *Usage for Claude*
 
 | | |
@@ -395,6 +408,7 @@ claude-usage top     [--by project|model|branch|effort|session] [--range 30d]
 claude-usage insights [--range 30d]          averages, peaks, patterns
 claude-usage export  [--range all] [-o f]    CSV export
 claude-usage accounts [add|remove|rename|token]
+claude-usage alerts [on|off|mute 2h|unmute|quiet 22:00-08:00|set W 80,95|test]
 claude-usage login   [id]                    how to sign in, then verify
 claude-usage menubar [--format swiftbar|json|text]
 claude-usage status                          Anthropic service status
@@ -423,9 +437,12 @@ GET  /api/menubar?format=text     one-line status
 GET  /api/export.csv?range=all    CSV
 GET  /api/status                  Anthropic service status
 GET  /api/alerts                  notifications already delivered
+POST /api/alerts                  {action: mute|unmute|test, hours}
 GET  /api/accounts                accounts, sign-in state, login hints
 POST /api/accounts                {action: add|remove|rename|token|signout|verify}
 POST /api/refresh                 force a scan + poll
+GET  /api/config                  the settings below
+POST /api/config                  merge settings in (nested objects merge, arrays replace)
 GET  /api/health
 ```
 
@@ -451,7 +468,9 @@ GET  /api/health
     },
     "resetReminderMinutes": [15],
     "serviceStatus": true,
-    "burnWarning": true
+    "burnWarning": true,
+    "mutedUntil": null,          // epoch ms; banners held back until then
+    "quietHours": null           // { "start": "22:00", "end": "08:00" }, local time
   }
 }
 ```
