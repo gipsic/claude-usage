@@ -3,14 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 import { open, setMeta, getMeta } from './db.mjs';
-import { loadConfig, saveConfig, CONFIG_PATH } from './config.mjs';
+import { loadConfig, saveConfig, CONFIG_PATH, deepMerge } from './config.mjs';
 import { scan } from './scanner.mjs';
 import { fetchUsage, recordUsage, readToken, MIN_POLL_MS } from './oauth.mjs';
 import { limitState, calibrate, loadCalibration, weightScheme, WINDOWS } from './limits.mjs';
 import { importDesktopHistory } from './desktop.mjs';
 import { serviceStatus } from './status.mjs';
 import { evaluate, evaluateService } from './alerts.mjs';
-import { recentAlerts } from './notify.mjs';
+import { notify, recentAlerts } from './notify.mjs';
 import * as Acct from './accounts.mjs';
 import * as WebLogin from './weblogin.mjs';
 import * as A from './analytics.mjs';
@@ -239,6 +239,25 @@ export function createServer(rt) {
           return json(res, await serviceStatus());
 
         case '/api/alerts':
+          if (req.method === 'POST') {
+            const body = JSON.parse(await readBody(req));
+            if (body.action === 'test') {
+              notify({ title: 'claude-usage', subtitle: 'test notification',
+                message: 'If you can see this, alerts can reach you.' });
+              return json(res, { ok: true });
+            }
+            if (body.action === 'mute' || body.action === 'unmute') {
+              const hours = Number(body.hours);
+              if (body.action === 'mute' && !(hours > 0 && hours <= 72)) {
+                return json(res, { error: 'mute takes 1-72 hours' }, 400);
+              }
+              rt.cfg = saveConfig(deepMerge(rt.cfg, {
+                alerts: { mutedUntil: body.action === 'mute' ? Date.now() + hours * 3600e3 : null },
+              }));
+              return json(res, { ok: true, alerts: rt.cfg.alerts });
+            }
+            return json(res, { error: `unknown action: ${body.action}` }, 400);
+          }
           return json(res, recentAlerts(rt.db, Number(q.get('limit')) || 50));
 
         case '/api/menubar': {
@@ -299,7 +318,9 @@ export function createServer(rt) {
         case '/api/config':
           if (req.method === 'POST') {
             const body = JSON.parse(await readBody(req));
-            rt.cfg = saveConfig({ ...rt.cfg, ...body });
+            // Deep merge, so posting { alerts: { mutedUntil } } does not wipe
+            // the thresholds beside it. Arrays are replaced, not concatenated.
+            rt.cfg = saveConfig(deepMerge(rt.cfg, body));
             return json(res, { ok: true, config: rt.cfg });
           }
           return json(res, rt.cfg);

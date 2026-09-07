@@ -24,6 +24,8 @@ export const DEFAULTS = {
     resetReminderMinutes: [15],
     serviceStatus: true,
     burnWarning: true,          // warn when the current burn rate exhausts the window early
+    mutedUntil: null,           // epoch ms: silence banners until then, keep recording
+    quietHours: null,           // { start: '22:00', end: '08:00' } in local time
   },
   currency: 'USD',
 };
@@ -33,7 +35,7 @@ function expand(p) {
   return p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p;
 }
 
-function deepMerge(base, over) {
+export function deepMerge(base, over) {
   if (!over || typeof over !== 'object' || Array.isArray(over)) return over ?? base;
   const out = { ...base };
   for (const [k, v] of Object.entries(over)) {

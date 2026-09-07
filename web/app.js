@@ -313,7 +313,94 @@ async function renderInsights() {
     </div>`).join('');
 }
 
+// ── alert settings ────────────────────────────────────────────────
+// The windows the plan reports vary (seven_day_fable and friends come and go),
+// so the threshold rows are built from whatever the config actually holds.
+function renderAlertSettings(cfg) {
+  S.alerts = cfg.alerts || {};
+  const a = S.alerts;
+  const muted = a.mutedUntil && a.mutedUntil > Date.now();
+
+  $('#alert-state').textContent = !a.enabled ? 'notifications off'
+    : muted ? `muted until ${new Date(a.mutedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : a.quietHours ? `quiet ${a.quietHours.start}–${a.quietHours.end}`
+    : 'threshold, reset and burn-rate notifications';
+
+  $('#as-enabled').checked = !!a.enabled;
+  $('#as-burn').checked = !!a.burnWarning;
+  $('#as-service').checked = !!a.serviceStatus;
+  $('#as-reminder').value = (a.resetReminderMinutes || []).join(', ');
+  $('#as-quiet-start').value = a.quietHours?.start || '';
+  $('#as-quiet-end').value = a.quietHours?.end || '';
+  $('#as-unmute').hidden = !muted;
+
+  const label = { five_hour: '5-hour session', seven_day: 'Weekly (all)', 'seven_day_*': 'Weekly per-model' };
+  $('#as-thresholds').innerHTML = Object.entries(a.thresholds || {}).map(([win, list]) => `
+    <label class="as-field">
+      <span>${esc(label[win] || win)} (%)</span>
+      <input type="text" inputmode="numeric" data-window="${esc(win)}" value="${esc((list || []).join(', '))}">
+    </label>`).join('');
+}
+
+function alertsFromForm() {
+  const nums = (v) => v.split(/[,\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n));
+  const thresholds = {};
+  for (const el of document.querySelectorAll('#as-thresholds input[data-window]')) {
+    thresholds[el.dataset.window] = nums(el.value).filter((n) => n > 0 && n <= 100).sort((x, y) => x - y);
+  }
+  const start = $('#as-quiet-start').value, end = $('#as-quiet-end').value;
+  return {
+    enabled: $('#as-enabled').checked,
+    burnWarning: $('#as-burn').checked,
+    serviceStatus: $('#as-service').checked,
+    resetReminderMinutes: nums($('#as-reminder').value).filter((n) => n > 0),
+    thresholds,
+    quietHours: start && end && start !== end ? { start, end } : null,
+  };
+}
+
+function wireAlertSettings() {
+  const form = $('#alert-settings');
+  const msg = (text) => { $('#as-msg').textContent = text; };
+
+  $('#alert-settings-toggle').addEventListener('click', (e) => {
+    form.hidden = !form.hidden;
+    e.currentTarget.setAttribute('aria-expanded', String(!form.hidden));
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const { config } = await post('/api/config', { alerts: alertsFromForm() });
+      renderAlertSettings(config);
+      msg('Saved.');
+    } catch (err) { msg(`Could not save: ${err.message}`); }
+  });
+
+  for (const b of document.querySelectorAll('[data-mute]')) {
+    b.addEventListener('click', async () => {
+      const { alerts } = await post('/api/alerts', { action: 'mute', hours: Number(b.dataset.mute) });
+      renderAlertSettings({ alerts });
+      msg(`Muted for ${b.dataset.mute}h — alerts keep being recorded.`);
+    });
+  }
+  $('#as-unmute').addEventListener('click', async () => {
+    const { alerts } = await post('/api/alerts', { action: 'unmute' });
+    renderAlertSettings({ alerts });
+    msg('Unmuted.');
+  });
+  $('#as-quiet-clear').addEventListener('click', () => {
+    $('#as-quiet-start').value = ''; $('#as-quiet-end').value = '';
+    msg('Quiet hours cleared — press Save to apply.');
+  });
+  $('#as-test').addEventListener('click', async () => {
+    try { await post('/api/alerts', { action: 'test' }); msg('Test notification sent.'); }
+    catch (err) { msg(`Could not send: ${err.message}`); }
+  });
+}
+
 async function renderAlerts() {
+  renderAlertSettings(await api('/api/config'));
   const rows = await api('/api/alerts', { limit: 40 });
   $('#alerts').innerHTML = rows.length ? rows.map((a) => `
     <li>
@@ -342,7 +429,8 @@ const initials = (a) => (a.displayName || a.email || a.label || '?')
 function tokenBadge(a) {
   if (!a.token.present) return '<span class="badge warn">not signed in</span>';
   if (a.token.expiresAt && a.token.expiresAt < Date.now()) return '<span class="badge bad">token expired</span>';
-  const where = { keychain: 'keychain', file: 'config file', saved: 'saved token', env: 'env var' }[a.token.source] || a.token.source;
+  const where = { keychain: 'keychain', file: 'config file', saved: 'saved token',
+    env: 'env var', 'desktop-app': 'Claude app' }[a.token.source] || a.token.source;
   return `<span class="badge ok">signed in · ${esc(where)}</span>`;
 }
 
@@ -610,6 +698,7 @@ function seg(container, attr, onPick) {
 }
 
 async function boot() {
+  wireAlertSettings();
   const accounts = await api('/api/accounts');
   S.account = accounts[0]?.id || 'default';
   renderAccounts(accounts);
