@@ -404,9 +404,11 @@ function signInDialog(a) {
   let session = null, poll = null;
   dialog(`
     <h3>Sign in — ${esc(a.email || a.label)}</h3>
-    <p>Claude's sign-in is interactive, so it runs in a Terminal window and opens
-       <b>claude.ai</b> in your browser. You approve there — nothing is typed here,
-       and this tool never sees your password.</p>
+    <p>Runs Claude Code's own <code>claude setup-token</code> in a Terminal window and opens
+       <b>claude.ai</b> for you to approve. That issues a <b>long-lived token</b> (about a year),
+       so the dashboard keeps updating while Claude Code is closed — the hourly session
+       token from a normal login goes stale as soon as you stop using the CLI.
+       Nothing is typed here and this tool never sees your password.</p>
     <div id="li-stage">
       <div class="row" style="justify-content:flex-start">
         <button class="btn primary" type="button" id="li-go">Sign in with browser</button>

@@ -419,7 +419,14 @@ const COMMANDS = {
     }
     if (sub === 'token') {
       const id = rest[1] || rt.cfg.accounts[0].id;
-      const tok = rest[2] || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      let tok = rest[2] || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      if (flags['from-file']) {
+        // Pull the token out of a captured terminal transcript (see weblogin).
+        const text = fs.readFileSync(flags['from-file'], 'utf8');
+        const m = text.match(/sk-ant-oat[0-9]{2}-[A-Za-z0-9_-]{40,}/);
+        if (!m) { console.error('no token found in ' + flags['from-file']); process.exit(1); }
+        tok = m[0];
+      }
       if (!tok) {
         console.log('usage: claude-usage accounts token <id> <token>');
         console.log(dim('  mint one with:  claude setup-token'));
@@ -450,8 +457,10 @@ const COMMANDS = {
 
     if (flags.web) {
       // Hand the whole flow to Claude's own CLI and mirror it here, so this is
-      // the same browser sign-in the dashboard button performs.
-      const r = WebLogin.start({ accountId: a.id, configDir: a.configDir, mode: flags.console ? 'console' : 'claudeai' });
+      // the same browser sign-in the dashboard button performs. Default is a
+      // long-lived setup-token; --claudeai gives the hourly session token instead.
+      const r = await WebLogin.start({ accountId: a.id, configDir: a.configDir,
+        mode: flags.console ? 'console' : flags.claudeai ? 'claudeai' : 'setup-token' });
       if (!r.ok) {
         console.error(`${red('✗')} ${r.error === 'claude-cli-not-found'
           ? 'the `claude` CLI was not found — install Claude Code first'

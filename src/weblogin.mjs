@@ -58,12 +58,18 @@ export function findClaude() {
 }
 
 /** The command a user would type to sign this account in. */
-export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
+export function loginCommand({ configDir, mode = 'setup-token' } = {}) {
   const cli = findClaude() || 'claude';
-  const flag = mode === 'console' ? '--console' : '--claudeai';
   const isDefault = !configDir || configDir === path.join(os.homedir(), '.claude');
   const prefix = isDefault ? '' : `CLAUDE_CONFIG_DIR="${configDir}" `;
-  return { cli, display: `${prefix}claude auth login ${flag}`, argv: [cli, 'auth', 'login', flag], isDefault };
+  if (mode === 'setup-token') {
+    // A long-lived token (about a year) meant for non-interactive use. Unlike the
+    // hourly access token from `auth login`, it keeps working while Claude Code
+    // is closed - which is what a background tracker needs.
+    return { cli, mode, display: `${prefix}claude setup-token`, argv: [cli, 'setup-token'], isDefault };
+  }
+  const flag = mode === 'console' ? '--console' : '--claudeai';
+  return { cli, mode, display: `${prefix}claude auth login ${flag}`, argv: [cli, 'auth', 'login', flag], isDefault };
 }
 
 /**
@@ -72,8 +78,9 @@ export function loginCommand({ configDir, mode = 'claudeai' } = {}) {
  * A .command file opened with `open -a Terminal` gets a real tty and, unlike
  * AppleScript automation, needs no Automation permission prompt.
  */
-function openInTerminal({ id, configDir, mode }) {
+function openInTerminal({ id, configDir, mode, accountId }) {
   const { argv, display, isDefault } = loginCommand({ configDir, mode });
+  const selfBin = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'claude-usage');
   const dir = path.join(DATA_HOME(), 'login');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const file = path.join(dir, `signin-${id}.command`);
@@ -91,8 +98,17 @@ function openInTerminal({ id, configDir, mode }) {
     // at the default ~/.claude is NOT a no-op - Claude Code then treats it as a
     // custom profile and stores the login somewhere else entirely.
     isDefault ? '' : `export CLAUDE_CONFIG_DIR=${q(configDir)}`,
-    `${argv.map(q).join(' ')}`,
+    // setup-token prints the token to the terminal. Run it under script(1) - which
+    // works here because this IS a terminal - so the transcript lands in a 0600
+    // capture file that claude-usage parses and then deletes. The token is never
+    // echoed anywhere else.
+    mode === 'setup-token'
+      ? `umask 077; /usr/bin/script -q ${q(file + '.capture')} ${argv.map(q).join(' ')}`
+      : `${argv.map(q).join(' ')}`,
     'STATUS=$?',
+    mode === 'setup-token'
+      ? `${q(selfBin)} accounts token ${q(accountId)} --from-file ${q(file + '.capture')} >/dev/null 2>&1 && echo "Token stored for claude-usage." || echo "Could not read a token from the output."; rm -f ${q(file + '.capture')}`
+      : '',
     'echo',
     'if [ $STATUS -eq 0 ]; then echo "Signed in."; else echo "Sign-in did not complete (exit $STATUS)."; fi',
     `rm -f ${q(file + '.started')}`,
@@ -155,7 +171,7 @@ function DATA_HOME() {
  * Start a sign-in: open the Terminal window, then watch for the credential.
  * Returns immediately; poll `status()`.
  */
-export async function start({ accountId = 'default', configDir, mode = 'claudeai' } = {}) {
+export async function start({ accountId = 'default', configDir, mode = 'setup-token' } = {}) {
   const cli = findClaude();
   if (!cli) return { ok: false, error: 'claude-cli-not-found' };
 
@@ -180,7 +196,7 @@ export async function start({ accountId = 'default', configDir, mode = 'claudeai
   };
   sessions.set(id, s);
 
-  const opened = await openInTerminal({ id, configDir, mode });
+  const opened = await openInTerminal({ id, configDir, mode, accountId });
   s.terminalOpened = opened.ok;
   s.launchVia = opened.via || null;
   s.scriptPath = opened.file || null;
