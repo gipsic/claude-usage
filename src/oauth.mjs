@@ -2,6 +2,9 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { desktopToken, desktopTokenState } from './apptoken.mjs';
+
+export { desktopToken, desktopTokenState };
 
 export const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 export const VERSION = (() => {
@@ -14,10 +17,29 @@ export const MIN_POLL_MS = 180_000;
 /**
  * Read the Claude Code OAuth token this machine already holds.
  *
+ * Order: a token saved for this account, the environment, Claude Code's own
+ * credential file, its keychain item, and finally - only when none of those is
+ * still live - the Claude desktop app's token. The CLI token lasts an hour and
+ * is renewed only by real CLI use, so on an idle machine the desktop app is the
+ * one credential still good; it is a fallback rather than a first choice
+ * because it belongs to another app and may be another account's.
+ *
+ * An expired credential is still returned when nothing live was found, so the
+ * caller can say "token-expired" instead of "no credentials at all".
+ *
  * The token never leaves the machine except in the Authorization header of the
  * request to api.anthropic.com below - the same call Claude Code's own /usage makes.
  */
 export function readToken({ configDir, accountId, fresh = false } = {}) {
+  const now = Date.now();
+  const live = (c) => c && (!c.expiresAt || c.expiresAt > now);
+  let stale = null;
+  // Keep the freshest expired credential in case nothing live turns up.
+  const keep = (c) => {
+    if (c && (!stale || (c.expiresAt ?? 0) > (stale.expiresAt ?? 0))) stale = c;
+    return null;
+  };
+
   // A token this tool was given explicitly wins, so a second account can be
   // signed in without touching Claude Code's own login.
   if (accountId) {
@@ -39,16 +61,23 @@ export function readToken({ configDir, accountId, fresh = false } = {}) {
     try {
       const j = JSON.parse(fs.readFileSync(file, 'utf8'));
       const t = j?.claudeAiOauth?.accessToken;
-      if (t) return { token: t, source: 'file', expiresAt: j.claudeAiOauth.expiresAt };
+      const c = t ? { token: t, source: 'file', expiresAt: j.claudeAiOauth.expiresAt } : null;
+      if (live(c)) return c;
+      keep(c);
     } catch { /* fall through to keychain */ }
   }
   // CLAUDE_USAGE_NO_KEYCHAIN lets tests and sandboxes run without touching the
   // real login keychain.
   if (process.platform === 'darwin' && !process.env.CLAUDE_USAGE_NO_KEYCHAIN) {
     const found = keychainToken({ fresh });
-    if (found) return found;
+    if (live(found)) return found;
+    keep(found);
+
+    const acct = accountInfo(configDir);
+    const app = desktopToken({ accountUuid: acct?.accountUuid, orgUuid: acct?.organizationUuid, now });
+    if (app) return app;
   }
-  return null;
+  return stale;
 }
 
 /**

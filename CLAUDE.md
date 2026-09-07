@@ -15,6 +15,7 @@ except requests to `api.anthropic.com` (usage) and `status.anthropic.com`.
 
 ```
 claude-usage          sh launcher: finds node (nvm/fnm/volta/system), execs src/main.mjs
+src/apptoken.mjs      desktop app's own OAuth token (safeStorage decrypt) - fallback credential
 src/cli.mjs           commands; renderNow(); swiftbar() menu-bar output
 src/server.mjs        HTTP API + background loops (scanAll / pollLimits / alerts)
 src/scanner.mjs       incremental JSONL scan → events table (dedupe requestId|message.id)
@@ -64,12 +65,14 @@ test/                 node:test, hermetic (see Testing)
   block, timestamp, model, cwd basename, branch, session id are read.
 
 Token discovery (`oauth.readToken`): saved token file → `CLAUDE_CODE_OAUTH_TOKEN`
-→ `<configDir>/.credentials.json` → keychain. Claude Code namespaces keychain
-items per config dir: `Claude Code-credentials` (default) and
-`Claude Code-credentials-<hash>`; we enumerate all and take the freshest live one.
-The CLI access token lasts **1 hour** and is renewed only by real Claude Code
-use (`claude auth status` does not renew it). When it is expired, API-only
-windows go stale; the header says so.
+→ `<configDir>/.credentials.json` → keychain → **desktop-app token**
+(`apptoken.desktopToken`), with the expired-but-freshest credential returned only
+if nothing live was found. Claude Code namespaces keychain items per config dir:
+`Claude Code-credentials` (default) and `Claude Code-credentials-<hash>`; we
+enumerate all and take the freshest live one. The CLI access token lasts **1
+hour** and is renewed only by real Claude Code use (`claude auth status` does not
+renew it); the desktop app's token now covers that gap, and only with neither
+live do API-only windows go stale.
 
 ## Algorithms worth knowing before editing
 
@@ -110,7 +113,7 @@ windows go stale; the header says so.
 
 ## Testing
 
-`npm test` — 39 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 46 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
@@ -136,20 +139,23 @@ That package is an internal *telemetry client* (uploads to a company server,
 UNLICENSED, text-only local view) — not a competitor UI — but its credential and
 platform work is worth borrowing as ideas (not code: no license).
 
-**A. Read the desktop app's own token (macOS) — recommended first.** Fixes the
-"session expires hourly" complaint without refreshing anything ourselves: the
-desktop app keeps its token fresh while it runs. Location
-`~/Library/Application Support/Claude/config.json` → `oauth:tokenCacheV2`
-(base64 `v10` + AES-128-CBC, IV = 16×0x20, PKCS7). Key = PBKDF2-HMAC-SHA1 of the
-keychain password `Claude Safe Storage` (account "Claude Key"), salt `saltysalt`,
-1003 iterations, 16 bytes (Chromium's public constants). Decrypted JSON holds
-multiple entries; pick the one with scope `user:inference`… **verify it is
-accepted by the usage endpoint before wiring it in** — nobody has tested that
-here. First read triggers a Keychain authorization dialog (ACL is bound to
-Claude.app) → user must click *Always Allow*; a short `security` timeout means
-"waiting for that dialog", not "missing". Undocumented format: fail soft with a
-named source string, never throw inside the daemon. Priority: keychain CLI token
-if live → desktop token → stale.
+**A. Desktop-app token (macOS) — DONE, `src/apptoken.mjs`.** The recipe held
+exactly as written: `oauth:tokenCacheV2` is base64 of `v10` + AES-128-CBC,
+IV = 16×0x20, key = PBKDF2-HMAC-SHA1("Claude Safe Storage"/"Claude Key" keychain
+password, `saltysalt`, 1003, 16 B). Verified against the endpoint on 2026-09-07:
+**all four cached entries answered HTTP 200**, including a `user:profile`-only
+one — consistent with decision 3 (every one of them carries `user:profile`,
+which a setup-token lacks); an inference-only token was not available to test.
+Entry keys are
+`acct:<accountUuid>|<memberUuid>:<orgUuid>:https://api.anthropic.com:<scopes>`,
+and `accountUuid` is the one in `~/.claude.json`'s `oauthAccount` — matched in
+`pickEntry` so another login on the machine cannot silently report its own
+percentages. Expiries seen: hours to ~9 months. Failures are named
+(`desktopTokenState()`: `keychain-timeout` = the authorization dialog is waiting,
+`keychain-no-item`, `decrypt-failed`, `no-desktop-app`, …), never thrown, and a
+failed read backs off 10 min so a *Deny* cannot re-prompt every poll. The
+safe-storage password is cached in-process and re-read once if a decrypt fails
+(key rotation). Not covered: Linux/Windows equivalents (B/C below).
 
 **B. Linux.** Token from `~/.claude/.credentials.json` (plaintext), same
 transcript layout, no desktop cache (so API-only for percentages), background via
