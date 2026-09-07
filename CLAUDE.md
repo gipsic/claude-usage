@@ -153,9 +153,9 @@ npm README/versions pages lag the registry by minutes; trust `npm view`.
 
 ## What is actually next (2026-09-07, after A-D shipped)
 
-1. **Publish.** v1.1.0 and v1.2.0 are tagged and released on GitHub but neither
-   is on npm - publish once, as 1.2.0 (or whatever `main` says), and the two
-   skipped versions simply never exist there. Provenance route: add the
+1. **Publish.** v1.1.0, v1.2.0 and v1.3.0 are tagged and released on GitHub but
+   none of them is on npm, where 1.0.4 is still latest - publish once, as 1.3.0,
+   and the skipped versions simply never exist there. Provenance route: add the
    `NPM_TOKEN` secret and run the *Publish to npm* workflow against the tag.
 2. **Verify Windows on real hardware.** Everything in C is CI-only: nobody has
    registered the scheduled task, seen a toast, completed a console sign-in, or
