@@ -117,7 +117,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 51 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 53 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
@@ -213,13 +213,18 @@ Windows desktop. Say so when asked; the README and CHANGELOG label it beta.
   unchanged and is still what launchd/systemd exec.
 - Sign-in writes a `.cmd` (CRLF, `pause` at the end) and opens it with
   `cmd /c start`; `setup-token` refuses on Windows (needs `script(1)`).
-- Still open: the desktop-app token on Windows = DPAPI (`Local State` →
-  `os_crypt.encrypted_key`, strip the `DPAPI` prefix) + AES-256-GCM. Not
-  attempted; `desktopToken` answers `unsupported-platform` there.
+- The desktop-app token on Windows is implemented (`apptoken.decryptTokenCacheGcm`,
+  `readSealedKey`, `dpapiUnprotect`): master key from `Local State`
+  (`os_crypt.encrypted_key`, strip the `DPAPI` magic, unwrap via Windows
+  PowerShell's `ProtectedData` - pwsh 7 may lack that assembly, so `powershell`
+  is invoked by name), envelope is `v10` + 12-byte nonce + ciphertext + 16-byte
+  tag under AES-256-GCM. The GCM half is unit-tested; **the DPAPI call has never
+  run**. GCM authenticates, so a wrong key throws rather than yielding garbage.
 
-**D. Small UX.** `install-daemon --dry-run` is still open. The credential error
-taxonomy shipped with A (`desktopTokenState()`), and the README "what looks
-suspicious / the fact / why" table shipped with the Linux release.
+**D. Small UX — DONE.** `install-daemon --dry-run` prints what each platform
+would install and writes nothing (launchd, systemd and the scheduled task). The
+credential error taxonomy shipped with A (`desktopTokenState()`), and the README
+"what looks suspicious / the fact / why" table shipped with the Linux release.
 
 Not doing: any ingest server / telemetry.
 

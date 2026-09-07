@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { desktopConfigPath as appConfigPath } from './platform.mjs';
+import { desktopConfigPath as appConfigPath, desktopSupportDir, IS_WINDOWS } from './platform.mjs';
 
 /**
  * The Claude desktop app's own OAuth token, read out of its encrypted cache.
@@ -18,6 +18,13 @@ import { desktopConfigPath as appConfigPath } from './platform.mjs';
  *
  * Verified on 2026-09-07: every entry in that cache - including a
  * `user:profile`-only one - is accepted by /api/oauth/usage with HTTP 200.
+ *
+ * Windows keeps the same cache under `%APPDATA%\Claude`, sealed the other way
+ * Chromium does it: the master key lives in `Local State` as
+ * `os_crypt.encrypted_key` (base64, `DPAPI` prefix, then a DPAPI blob that only
+ * this user account can unprotect), and the envelope is AES-256-GCM - `v10`,
+ * a 12-byte nonce, the ciphertext, a 16-byte tag. That path has never run on a
+ * real Windows machine; it fails soft like everything else here.
  *
  * The format is undocumented and may change under us, so nothing here throws:
  * every failure comes back as a named reason (see `desktopTokenState`) and the
@@ -36,6 +43,12 @@ const ITERATIONS = 1003;
 const KEY_LEN = 16;
 const IV = Buffer.alloc(16, 0x20);
 const PREFIX = 'v10';
+
+// Windows: AES-256-GCM with a 12-byte nonce and a 16-byte tag, and a master key
+// wrapped by DPAPI under a `DPAPI` magic.
+const GCM_NONCE_LEN = 12;
+const GCM_TAG_LEN = 16;
+const DPAPI_PREFIX = 'DPAPI';
 
 /** Treat a token that expires within a minute as already gone. */
 const SKEW_MS = 60_000;
@@ -57,6 +70,70 @@ export function decryptTokenCache(encoded, password) {
   const d = crypto.createDecipheriv('aes-128-cbc', safeStorageKey(password), IV);
   const plain = Buffer.concat([d.update(blob.subarray(PREFIX.length)), d.final()]).toString('utf8');
   return JSON.parse(plain);
+}
+
+/** Decrypt one Windows `v10` envelope with the app's master key. Throws - callers wrap it. */
+export function decryptTokenCacheGcm(encoded, key) {
+  const blob = Buffer.from(String(encoded), 'base64');
+  if (blob.subarray(0, PREFIX.length).toString('latin1') !== PREFIX) throw new Error('bad-prefix');
+  const nonce = blob.subarray(PREFIX.length, PREFIX.length + GCM_NONCE_LEN);
+  const tag = blob.subarray(blob.length - GCM_TAG_LEN);
+  const body = blob.subarray(PREFIX.length + GCM_NONCE_LEN, blob.length - GCM_TAG_LEN);
+  const d = crypto.createDecipheriv('aes-256-gcm', key, nonce);
+  d.setAuthTag(tag);
+  // GCM authenticates: a wrong key throws here rather than yielding garbage.
+  return JSON.parse(Buffer.concat([d.update(body), d.final()]).toString('utf8'));
+}
+
+export function localStatePath() {
+  if (process.env.CLAUDE_USAGE_DESKTOP_LOCAL_STATE) return process.env.CLAUDE_USAGE_DESKTOP_LOCAL_STATE;
+  const dir = desktopSupportDir();
+  return dir ? path.join(dir, 'Local State') : null;
+}
+
+/** The DPAPI-wrapped master key from `Local State`, still sealed. */
+export function readSealedKey(file = localStatePath()) {
+  const j = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const b64 = j?.os_crypt?.encrypted_key;
+  if (typeof b64 !== 'string' || !b64) { const e = new Error('no-master-key'); e.reason = 'no-master-key'; throw e; }
+  const blob = Buffer.from(b64, 'base64');
+  if (blob.subarray(0, DPAPI_PREFIX.length).toString('latin1') !== DPAPI_PREFIX) {
+    const e = new Error('not-dpapi'); e.reason = 'master-key-not-dpapi'; throw e;
+  }
+  return blob.subarray(DPAPI_PREFIX.length);
+}
+
+// Windows PowerShell (5.1, always installed) can call DPAPI directly; pwsh 7 may
+// not have the assembly. The blob travels as base64 in the environment so no
+// part of it is ever spelled into a command line.
+const DPAPI_PS = `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Security
+$sealed = [Convert]::FromBase64String($env:CU_SEALED)
+$key = [System.Security.Cryptography.ProtectedData]::Unprotect(
+  $sealed, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+[Convert]::ToBase64String($key)
+`;
+
+function dpapiUnprotect(sealed) {
+  try {
+    const out = execFileSync('powershell',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', DPAPI_PS], {
+        encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000, windowsHide: true,
+        env: { ...process.env, CU_SEALED: sealed.toString('base64') },
+      });
+    const key = Buffer.from(out.trim(), 'base64');
+    if (key.length !== 32) { const e = new Error('bad-key'); e.reason = 'master-key-unusable'; throw e; }
+    return key;
+  } catch (e) {
+    if (e.reason) throw e;
+    const err = new Error('dpapi');
+    // A blob sealed by another Windows account cannot be unprotected here at all.
+    err.reason = e.signal || e.code === 'ETIMEDOUT' ? 'dpapi-timeout'
+      : /Key not valid|CryptUnprotectData/i.test(String(e.stderr || e.message || '')) ? 'dpapi-denied'
+      : 'dpapi-failed';
+    throw err;
+  }
 }
 
 /**
@@ -138,13 +215,21 @@ function safeStoragePassword() {
   }
 }
 
+/** The unwrapped AES-256 key, cached for the life of the process. */
+function masterKey() {
+  if (cachedPassword) return cachedPassword;
+  cachedPassword = dpapiUnprotect(readSealedKey());
+  return cachedPassword;
+}
+
 /**
  * The desktop app's token, or null with a reason in `desktopTokenState()`.
  * Never throws: it runs inside the poll loop.
  */
 export function desktopToken({ accountUuid = null, orgUuid = null, now = Date.now() } = {}) {
   const fail = (error) => { state = { ok: false, error }; return null; };
-  if (process.platform !== 'darwin') return fail('unsupported-platform');
+  // There is no Claude desktop app on Linux, so there is no token to find.
+  if (process.platform !== 'darwin' && !IS_WINDOWS) return fail('unsupported-platform');
   if (process.env.CLAUDE_USAGE_NO_KEYCHAIN) return fail('disabled');
   if (now < backoffUntil) return fail(state.error);
 
@@ -159,14 +244,20 @@ export function desktopToken({ accountUuid = null, orgUuid = null, now = Date.no
 
   let cache;
   for (let attempt = 0; attempt < 2; attempt++) {
-    let password;
-    try { password = safeStoragePassword(); }
-    catch (e) { backoffUntil = now + RETRY_AFTER_FAIL_MS; return fail(e.reason || 'keychain-error'); }
-    if (!password) { backoffUntil = now + RETRY_AFTER_FAIL_MS; return fail('keychain-empty'); }
-    try { cache = decryptTokenCache(encoded, password); break; }
-    catch {
-      // A rotated safe-storage key makes a cached password decrypt garbage;
-      // drop it and read the keychain once more before giving up.
+    let secret;
+    try { secret = IS_WINDOWS ? masterKey() : safeStoragePassword(); }
+    catch (e) {
+      backoffUntil = now + RETRY_AFTER_FAIL_MS;
+      if (e.code === 'ENOENT') return fail('no-local-state');
+      return fail(e.reason || (IS_WINDOWS ? 'dpapi-failed' : 'keychain-error'));
+    }
+    if (!secret) { backoffUntil = now + RETRY_AFTER_FAIL_MS; return fail(IS_WINDOWS ? 'master-key-empty' : 'keychain-empty'); }
+    try {
+      cache = IS_WINDOWS ? decryptTokenCacheGcm(encoded, secret) : decryptTokenCache(encoded, secret);
+      break;
+    } catch {
+      // A rotated safe-storage key makes a cached secret decrypt garbage; drop
+      // it and read the real thing once more before giving up.
       if (attempt === 0 && cachedPassword) { cachedPassword = null; continue; }
       backoffUntil = now + RETRY_AFTER_FAIL_MS;
       return fail('decrypt-failed');

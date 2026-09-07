@@ -6,6 +6,10 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Windows: the **Claude desktop app's token** is read there too, the way Chromium seals it on that platform — the master key comes out of `Local State` (`os_crypt.encrypted_key`, `DPAPI` magic stripped, unwrapped through PowerShell's `ProtectedData`) and the cache is AES-256-GCM. Same fallback position as on macOS: only when the CLI token has expired, only for the read-only usage call, never refreshed or rewritten. **Untested on real hardware** — the crypto is covered by tests, the DPAPI call is not; failures stay named (`dpapi-denied`, `no-local-state`, …) and fall back.
+- `claude-usage install-daemon --dry-run` now works everywhere: it prints the launchd agent, systemd unit or scheduled task it would install and writes nothing.
+
 ## [1.2.0] — 2026-09-07
 
 ### Added
