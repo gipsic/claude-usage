@@ -8,6 +8,13 @@ All notable changes are recorded here. The format follows
 
 ## [1.0.4] — 2026-09-07
 
+### Fixed
+- A 5-hour snapshot older than the window itself is no longer shown as the current session: with nothing sent since, the card reads **0% · not started** with no reset time, until the next message opens a window. A brand-new install with no data still reads "unknown", not 0%.
+- Numbers older than 20 minutes are badged `stale · Xm ago` instead of `live`, and an expired sign-in token is stated in the Limits header with what renews it.
+- `Claude Usage.app` (Login Item) no longer starts a second server when the launchd agent is installed — it kickstarts the agent instead. The race left the agent crash-looping on a busy port at login.
+- `serve` exits with a clear message when its port is taken (launchd retries every 60 s instead of 10 s).
+- Test suite: each test process now works on its own copy of the fixtures, fixing an intermittent 15-vs-16 count between `scanner.test` and `server.test`.
+
 ### Changed
 - A saved/pasted token the usage endpoint rejects (401) is dropped automatically so it cannot shadow a valid keychain login. (`claude setup-token` was evaluated as a long-lived credential; the endpoint answers 401 to it, so sign-in stays on `auth login` and the mint-and-paste route was removed from the UI and docs.)
 
