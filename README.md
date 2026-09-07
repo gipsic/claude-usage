@@ -15,7 +15,7 @@ endpoint directly. Nothing leaves the machine.
 [![Release](https://img.shields.io/github/v/release/gipsic/claude-usage)](https://github.com/gipsic/claude-usage/releases)
 [![Socket](https://badge.socket.dev/npm/package/@gipsic/claude-usage)](https://socket.dev/npm/package/@gipsic/claude-usage)
 
-[ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+[ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Security](SECURITY.md)
 
 ## Install
 
