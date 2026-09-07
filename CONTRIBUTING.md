@@ -6,6 +6,9 @@ do. Issues, questions, and pull requests are all welcome, from first-timers too.
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+Architecture, deliberate decisions, known traps and the roadmap live in
+[CLAUDE.md](CLAUDE.md) — read it first.
+
 ## Ground rules
 
 - **Zero dependencies, Node 22+, macOS.** The whole point is `git clone` and
