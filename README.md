@@ -1,11 +1,7 @@
 # claude-usage
 
-**See your Claude limits, exact reset times, burn rate and full usage history — on your own machine, from your own data.**
-
-A zero-dependency shell tool + local web dashboard for Claude Code / Claude Max
-subscribers. It reads the transcripts Claude Code already writes, the Claude
-desktop app's own plan-usage cache, and (once you sign in) Anthropic's usage
-endpoint directly. Nothing leaves the machine.
+**How much of your Claude limit is left, when it resets, and what you have been
+spending — on your own machine, from your own data.**
 
 [![CI](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/gipsic/claude-usage/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -16,6 +12,21 @@ endpoint directly. Nothing leaves the machine.
 [![Socket](https://badge.socket.dev/npm/package/@gipsic/claude-usage)](https://socket.dev/npm/package/@gipsic/claude-usage)
 
 [ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Security](SECURITY.md)
+
+![The limits view: percentage used, exact reset time, burn rate and projection for each window](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-limits.png)
+
+Claude Code tells you a percentage. This tells you **which windows are close,
+when each one really resets, whether your current burn rate gets you there
+first, and what the whole month has cost** — and it keeps the history the apps
+throw away.
+
+- **Real numbers, not guesses.** Percentages come from the same Anthropic
+  endpoint Claude Code's own `/usage` calls, using the login you already have.
+  Anything inferred is labelled `estimated`; nothing is dressed up as live.
+- **Everything stays local.** Transcripts → SQLite on your disk → a dashboard on
+  `127.0.0.1`. Zero npm dependencies, no telemetry, no account, no server.
+- **It keeps running.** A launchd agent, systemd user service or scheduled task
+  records the windows so you have months of history, not just today.
 
 ## Install
 
@@ -68,6 +79,42 @@ as such.
 claude-usage now          # terminal snapshot
 claude-usage watch        # live
 claude-usage doctor       # check every data source
+```
+
+## More of it
+
+**Usage history** — every 5-hour window against the limit, with weekly
+utilization drawn from real recorded snapshots (not interpolated).
+
+![Usage history: 5-hour window peaks and weekly utilization over seven days](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-history.png)
+
+**Daily activity and session history** — a year at a glance, then every 5-hour
+window with duration, requests, tokens, cost and the models used.
+
+![Daily activity heatmap and a table of recent 5-hour sessions](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-activity.png)
+
+**Insights** — averages, peaks, cache hit share, the hours and days you actually
+work.
+
+![Insights: averages, peak day and window, busiest hour, spend by day of week](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-insights.png)
+
+**In the terminal** — `claude-usage now` for a one-shot snapshot, `watch` for a
+live view, `menubar` for a status line:
+
+```
+  Claude usage — default
+
+  5-hour session  ████████░░░░░░░░░░░░░░░░░░░░   30%  live+
+                 resets 12:09 AM (5m)  ·  $148.74 · 238.4M tok  ·  burn 7.9%/h  ·  proj 31% at reset
+  Weekly (all)    █████████░░░░░░░░░░░░░░░░░░░   33%  live+
+                 resets Sun 07:59 AM (103h 55m)  ·  $723.45 · 1.01B tok  ·  burn 0.4%/h  ·  proj 75% at reset
+  Weekly Fable    ███████████░░░░░░░░░░░░░░░░░   38%  live
+                 resets Sun 07:59 AM (103h 55m)
+
+  Spend (API-equivalent)
+  Today                $5.95   2.6M tok  14 reqs
+  Last 7 days       $2473.41  3.73B tok  13219 reqs
+  Last 30 days      $9136.79  13.98B tok  44205 reqs
 ```
 
 ## Help make it better

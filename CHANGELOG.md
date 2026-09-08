@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-09-09
+
+### Documentation
+- README leads with a screenshot and what the tool answers, instead of three install variants. Added a gallery of the history, activity and insights views, and the terminal snapshot.
+
 ## [1.5.2] — 2026-09-08
 
 ### Added
@@ -124,7 +129,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.3...HEAD
+[1.5.3]: https://github.com/gipsic/claude-usage/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/gipsic/claude-usage/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/gipsic/claude-usage/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/gipsic/claude-usage/compare/v1.4.0...v1.5.0
