@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.6] — 2026-09-09
+
+### Documentation
+- The Thai quickstart was still macOS-only and predated Homebrew, the alert settings, `restart` and the desktop-app token fallback. Rewritten: three platforms, `brew` first, the alert and mute commands, the "upgraded but the numbers did not change" fix, how the token fallback works, and the same factual ccusage comparison as the README.
+
 ## [1.5.5] — 2026-09-09
 
 ### Documentation
@@ -141,7 +146,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.5...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.6...HEAD
+[1.5.6]: https://github.com/gipsic/claude-usage/compare/v1.5.5...v1.5.6
 [1.5.5]: https://github.com/gipsic/claude-usage/compare/v1.5.4...v1.5.5
 [1.5.4]: https://github.com/gipsic/claude-usage/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/gipsic/claude-usage/compare/v1.5.2...v1.5.3
