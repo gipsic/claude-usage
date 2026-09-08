@@ -9,6 +9,12 @@ name: Publish to npm
 #
 # Two ways to authenticate, in order of preference:
 #
+# By default the workflow *stages* the release instead of publishing it: the
+# tarball is built, signed and uploaded, and a human approves it afterwards on
+# npmjs.com or with `npm stage approve`. That is npm's recommended posture and
+# it means a compromised workflow still cannot ship a version on its own. Pass
+# `direct: true` only if the trusted publisher has "Allow npm publish" enabled.
+#
 # 1. Trusted publishing (OIDC), no secret at all. On npmjs.com: the package ->
 #    Settings -> Trusted publisher -> GitHub Actions, with this repository and
 #    this workflow's filename. npm then trusts a short-lived OIDC token minted by
@@ -25,7 +31,11 @@ on:
         description: 'Tag to publish (e.g. v1.1.0)'
         required: true
       dry_run:
-        description: 'Pack only, do not publish'
+        description: 'Pack only, do not publish or stage'
+        type: boolean
+        default: false
+      direct:
+        description: 'Publish straight to the registry instead of staging for approval'
         type: boolean
         default: false
 
@@ -62,10 +72,29 @@ jobs:
 
       - run: npm pack --dry-run
 
-      # Provenance either way: the registry records that this tarball was built
-      # from this repository at this commit by this workflow.
+      # Default: stage rather than publish. The trusted publisher is configured
+      # with "Allow npm publish" off, which is npm's recommendation - CI builds
+      # and signs the tarball, a human approves it, and a compromised workflow
+      # cannot put a version on the registry by itself.
+      - name: stage for approval (trusted publishing)
+        if: ${{ !inputs.dry_run && !inputs.direct && env.HAS_NPM_TOKEN != 'true' }}
+        run: |
+          npm stage publish --provenance --access public
+          {
+            echo "### Staged, waiting for approval"
+            echo
+            echo 'Approve it on npmjs.com (package -> Settings -> Staged), or:'
+            echo
+            echo '```'
+            echo 'npm stage list @gipsic/claude-usage'
+            echo 'npm stage approve <stage-id>'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Only when the trusted publisher is allowed to publish directly, or a
+      # token is configured. Provenance is recorded either way.
       - name: publish (trusted publishing)
-        if: ${{ !inputs.dry_run && env.HAS_NPM_TOKEN != 'true' }}
+        if: ${{ !inputs.dry_run && inputs.direct && env.HAS_NPM_TOKEN != 'true' }}
         run: npm publish --provenance --access public
 
       - name: publish (automation token)
