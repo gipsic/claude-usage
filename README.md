@@ -13,7 +13,7 @@ spending — on your own machine, from your own data.**
 
 [ไทย: QUICKSTART.th.md](QUICKSTART.th.md) · [Support](SUPPORT.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Security](SECURITY.md)
 
-![The limits view: percentage used, exact reset time, burn rate and projection for each window](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-limits.png)
+![The dashboard cycling through limits, usage history, daily activity and insights](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard.gif)
 
 Claude Code tells you a percentage. This tells you **which windows are close,
 when each one really resets, whether your current burn rate gets you there
@@ -29,6 +29,12 @@ throw away.
   records the windows so you have months of history, not just today.
 
 ## Install
+
+```bash
+brew tap gipsic/tap && brew install claude-usage      # macOS
+```
+
+or, on macOS and Linux, the installer that also sets up the background service:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gipsic/claude-usage/main/install.sh | sh
@@ -223,6 +229,10 @@ and the whole database on disk in SQLite for your own queries.
 
 ## How limit tracking works
 
+> A longer write-up of the file formats, the credential handling and the fitting:
+> [Where Claude Code keeps your usage numbers](docs/blog/where-claude-code-keeps-your-usage.md).
+
+
 Anthropic doesn't publish plan limits as token numbers, and the transcripts don't
 record them. Three sources are combined:
 
@@ -392,6 +402,9 @@ ever leaves the machine in the `Authorization` header of the request to
 claude-usage install-daemon          # optionally: --port 4778
 claude-usage uninstall-daemon
 ```
+
+Installed with Homebrew? `brew upgrade claude-usage` replaces the files; the
+tracker still needs `claude-usage restart` to pick them up.
 
 > **After upgrading, restart the tracker.** `npm i -g` (or a `git pull`) replaces
 > the files on disk; the process that is already running keeps the old code until

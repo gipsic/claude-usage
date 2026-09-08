@@ -6,6 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.4] — 2026-09-09
+
+### Added
+- **Homebrew**: `brew tap gipsic/tap && brew install claude-usage`. The formula lives in `packaging/homebrew/` and `bin/release-homebrew.sh` points the tap at a new tag.
+- `docs/blog/where-claude-code-keeps-your-usage.md` — the file formats, the credential handling and the weighting fit, written up so someone can rebuild any of it without this tool.
+- README leads with an animation of the dashboard instead of a still.
+
 ## [1.5.3] — 2026-09-09
 
 ### Documentation
@@ -129,7 +136,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.3...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.4...HEAD
+[1.5.4]: https://github.com/gipsic/claude-usage/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/gipsic/claude-usage/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/gipsic/claude-usage/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/gipsic/claude-usage/compare/v1.5.0...v1.5.1
