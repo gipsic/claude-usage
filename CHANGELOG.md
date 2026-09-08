@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.7] — 2026-09-09
+
+### Fixed
+- `install.sh` decided whether to add `~/.local/bin` to your shell profile by looking at the *current session's* `PATH`. A shell that happened to have the directory already meant the line was never written, and every terminal opened afterwards answered `zsh: command not found: claude-usage` — with the tool installed and its agent running. It now checks the profile itself, which is what it was trying to ask all along.
+
 ## [1.5.6] — 2026-09-09
 
 ### Documentation
@@ -146,7 +151,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.6...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.7...HEAD
+[1.5.7]: https://github.com/gipsic/claude-usage/compare/v1.5.6...v1.5.7
 [1.5.6]: https://github.com/gipsic/claude-usage/compare/v1.5.5...v1.5.6
 [1.5.5]: https://github.com/gipsic/claude-usage/compare/v1.5.4...v1.5.5
 [1.5.4]: https://github.com/gipsic/claude-usage/compare/v1.5.3...v1.5.4
