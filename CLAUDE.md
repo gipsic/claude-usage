@@ -160,11 +160,17 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
 1. Move *Unreleased* in CHANGELOG.md to a version section, bump `package.json`
    (or `npm version patch` — it commits and tags itself; don't also tag by hand).
 2. `git push --follow-tags`, `gh release create vX.Y.Z --notes-file <section>`.
-3. `npm publish` — needs the user's npm login + 2FA; Claude cannot do it.
-   Alternative, once `NPM_TOKEN` (an npm automation token) is a repo secret: run
-   the *Publish to npm* workflow from the Actions tab against the tag. It is
-   manual-dispatch only, checks package.json against the tag, and publishes with
-   `--provenance` so the registry can tie the tarball to this commit.
+3. `npm publish` — from a laptop it needs the user's npm login **and an
+   interactive 2FA approval every time**; Claude cannot complete that, and the
+   npm auth token in `~/.npmrc` has expired mid-session before (401 on
+   `whoami`, 404 on the publish PUT - the same symptom).
+   The way out is the *Publish to npm* workflow (manual dispatch, checks
+   package.json against the tag, publishes with `--provenance`). It authenticates
+   either by **trusted publishing (OIDC, no secret)** - configured on npmjs.com
+   under the package's Trusted publisher, naming this repo and
+   `release.yml` - or by an `NPM_TOKEN` automation-token secret if one exists.
+   Prefer OIDC: npm is restricting 2FA-bypassing tokens for direct publishing
+   from January 2027.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
