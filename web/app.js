@@ -418,6 +418,25 @@ async function renderAlerts() {
     </li>`).join('') : '<li class="empty">No alerts fired yet.</li>';
 }
 
+/**
+ * The version of the process serving this page - not of the files on disk.
+ * A tracker left running across an upgrade serves its old dashboard too, so
+ * this is the one place the mismatch is visible without opening a terminal.
+ */
+async function renderVersion() {
+  const el = $('#app-version');
+  try {
+    const h = await api('/api/health');
+    el.textContent = `v${h.version}`;
+    if (h.startedAt) {
+      const mins = Math.round((Date.now() - h.startedAt) / 60000);
+      const up = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+        : `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h`;
+      el.title = `tracker v${h.version} · running ${up} · pid ${h.pid}`;
+    }
+  } catch { el.textContent = ''; }
+}
+
 async function renderStatus() {
   const s = await api('/api/status');
   const chip = $('#svc-status');
@@ -728,6 +747,7 @@ async function boot() {
   seg('#dim-tabs', 'by', (b) => { S.by = b; renderBreakdown(); });
   $('#refresh').addEventListener('click', () => refreshAll({ hard: true }));
   $('#api-base').textContent = `${location.origin}/api/`;
+  renderVersion();
   updateExport();
 
   addEventListener('resize', debounce(() => {
