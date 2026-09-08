@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-09-08
+
+### Fixed
+- `doctor` could report the tracker as **not running** when it was running fine: the health check gave up after 1.5 s, and a scan tick over a large history blocks the server's event loop for longer than that. It now waits 4 s and retries once.
+
 ## [1.5.0] — 2026-09-08
 
 ### Added
@@ -114,7 +119,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/gipsic/claude-usage/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/gipsic/claude-usage/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/gipsic/claude-usage/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/gipsic/claude-usage/compare/v1.2.0...v1.3.0

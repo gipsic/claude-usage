@@ -186,14 +186,25 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
  * -ExecutionPolicy Bypass because the default policy on Windows client editions
  * refuses to run a downloaded .ps1 at all, and this one ships inside the package.
  */
-/** Ask the running tracker who it is, or null when nothing answers. */
-async function health(port, timeoutMs = 1500) {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), timeoutMs);
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: ac.signal });
-    return r.ok ? await r.json() : null;
-  } catch { return null; } finally { clearTimeout(timer); }
+/**
+ * Ask the running tracker who it is, or null when nothing answers.
+ *
+ * Generous timeout and one retry: the server is single-threaded and a scan tick
+ * over a large history blocks its event loop for a moment. A tight timeout there
+ * reports "not running" for a tracker that is running perfectly well, which is
+ * exactly the confusion this whole check exists to remove.
+ */
+async function health(port, { timeoutMs = 4000, tries = 2 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: ac.signal });
+      if (r.ok) return await r.json();
+    } catch { /* retry once, then give up */ } finally { clearTimeout(timer); }
+    if (i + 1 < tries) await new Promise((r) => setTimeout(r, 300));
+  }
+  return null;
 }
 
 const fmtDur = (ms) => {
