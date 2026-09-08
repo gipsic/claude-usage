@@ -64,17 +64,11 @@ npm install -g @gipsic/claude-usage && claude-usage install-daemon
 > Prefer `install -g` over `npx` for the background service: `npx` unpacks into a
 > cache that gets pruned, and the launchd agent would point at a vanished path.
 
-The same versions are mirrored to **GitHub Packages**. Note that GitHub requires
-authentication to install from it even for a public package, so npmjs.org above
-is the easier route; use this one if your organisation prefers packages to come
-from the same place as the source:
-
-```bash
-npm install -g @gipsic/claude-usage --registry=https://npm.pkg.github.com
-```
-
-with a GitHub token that has `read:packages` in your `~/.npmrc`
-(`//npm.pkg.github.com/:_authToken=…`).
+> Every release is also pushed to GitHub Packages, but that copy is **private to
+> the GIPSIC organisation** — GitHub Packages authenticates every install, even
+> for public packages, and this organisation does not permit public ones. It is
+> an internal mirror, not a second way in. npmjs.org and Homebrew above are the
+> ways to install this.
 
 From a clone instead:
 

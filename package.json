@@ -1,6 +1,6 @@
 {
   "name": "@gipsic/claude-usage",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "type": "module",
   "description": "See your Claude limits, exact reset times, burn rate and full usage history \u2014 on your own machine, from your own data.",
   "bin": {
