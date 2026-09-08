@@ -38,6 +38,10 @@ on:
         description: 'Publish straight to the registry instead of staging for approval'
         type: boolean
         default: false
+      github_packages:
+        description: 'Also publish to GitHub Packages (npm.pkg.github.com)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -102,3 +106,33 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # A mirror on GitHub Packages, so the package shows on the repository and an
+  # org can install it from the same place as the source. It is a mirror, not a
+  # replacement: GitHub Packages requires every consumer to authenticate, even
+  # for a public package, so npmjs.org stays the documented install path.
+  #
+  # No provenance here - attestations are an npmjs.org feature - and no secret:
+  # GITHUB_TOKEN with packages:write is enough.
+  github-packages:
+    if: ${{ inputs.github_packages && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@gipsic'
+      - name: version matches the tag
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          [ "$PKG" = "${{ inputs.tag }}" ] || { echo "package.json is $PKG but the tag is ${{ inputs.tag }}"; exit 1; }
+      - run: npm publish --registry=https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

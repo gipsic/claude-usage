@@ -177,6 +177,10 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
    failed with `403 OIDC permission denied for this action` for exactly that
    reason - the identity was accepted (provenance was signed), the *action* was
    not. Dispatch with `direct: true` only if that box is ever ticked.
+The same dispatch also mirrors the release to **GitHub Packages** (a second job,
+`GITHUB_TOKEN` + `packages: write`, no provenance - that is npmjs-only). It is a
+mirror: GitHub Packages makes every consumer authenticate even for a public
+package, so npmjs.org stays the documented install path.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
