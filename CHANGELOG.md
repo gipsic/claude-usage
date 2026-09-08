@@ -6,7 +6,7 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
-## [1.6.0] — 2026-09-08
+## [1.5.2] — 2026-09-08
 
 ### Added
 - The dashboard header shows the version of the tracker serving the page (hover for uptime and pid). A tracker left running across an upgrade serves its old dashboard too, so this is where the mismatch shows up without opening a terminal.
@@ -124,8 +124,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.6.0...HEAD
-[1.6.0]: https://github.com/gipsic/claude-usage/compare/v1.5.1...v1.6.0
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/gipsic/claude-usage/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/gipsic/claude-usage/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/gipsic/claude-usage/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/gipsic/claude-usage/compare/v1.3.0...v1.4.0

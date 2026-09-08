@@ -144,6 +144,15 @@ every PR unmergeable ("base branch policy prohibits the merge") until
 `repos/:owner/:repo/branches/main/protection/required_status_checks` was PATCHed
 to the four new names. Rename a job → update that list in the same change.
 
+## Versioning (decide before bumping)
+
+**MINOR** only for a new capability someone could depend on: a new CLI command or
+API endpoint, a new platform, a new data source, a setting that changes what the
+tool can do. **PATCH** for everything else - bug fixes, wording, diagnostics, UI
+chrome, a badge, a timeout. When in doubt it is a patch; an inflated minor makes
+the history lie about how much changed. (v1.6.0 was cut for a version chip in the
+dashboard header and rolled back to 1.5.2 before it ever reached npm.)
+
 ## Release process
 
 `main` is protected (PR + green CI on Node 22/24, linear history); the owner
