@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.9] — 2026-09-09
+
+### Documentation
+- The README offered GitHub Packages as an alternative install route. That copy is private to the GIPSIC organisation — GitHub disallows public packages there, and GitHub Packages authenticates every install anyway — so it is now described as the internal mirror it is. npmjs.org and Homebrew are the ways in.
+
 ## [1.5.8] — 2026-09-09
 
 ### Fixed
@@ -159,7 +164,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.8...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.9...HEAD
+[1.5.9]: https://github.com/gipsic/claude-usage/compare/v1.5.8...v1.5.9
 [1.5.8]: https://github.com/gipsic/claude-usage/compare/v1.5.7...v1.5.8
 [1.5.7]: https://github.com/gipsic/claude-usage/compare/v1.5.6...v1.5.7
 [1.5.6]: https://github.com/gipsic/claude-usage/compare/v1.5.5...v1.5.6

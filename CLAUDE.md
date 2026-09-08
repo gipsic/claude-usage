@@ -178,9 +178,12 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
    reason - the identity was accepted (provenance was signed), the *action* was
    not. Dispatch with `direct: true` only if that box is ever ticked.
 The same dispatch also mirrors the release to **GitHub Packages** (a second job,
-`GITHUB_TOKEN` + `packages: write`, no provenance - that is npmjs-only). It is a
-mirror: GitHub Packages makes every consumer authenticate even for a public
-package, so npmjs.org stays the documented install path.
+`GITHUB_TOKEN` + `packages: write`, no provenance - that is npmjs-only). That
+copy is **private**: the `gipsic` org disables public packages ("Setting is
+disabled by organization administrators" on the visibility dialog), and GitHub
+Packages authenticates every install regardless. Treat it as an internal mirror;
+npmjs.org and the Homebrew tap are the real distribution. Toggle the job per
+dispatch with `github_packages`, and the npm job with `npm_registry`.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
