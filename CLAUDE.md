@@ -165,12 +165,18 @@ bypasses via admin (the "Bypassed rule violations" notice is expected).
    npm auth token in `~/.npmrc` has expired mid-session before (401 on
    `whoami`, 404 on the publish PUT - the same symptom).
    The way out is the *Publish to npm* workflow (manual dispatch, checks
-   package.json against the tag, publishes with `--provenance`). It authenticates
-   either by **trusted publishing (OIDC, no secret)** - configured on npmjs.com
-   under the package's Trusted publisher, naming this repo and
-   `release.yml` - or by an `NPM_TOKEN` automation-token secret if one exists.
-   Prefer OIDC: npm is restricting 2FA-bypassing tokens for direct publishing
-   from January 2027.
+   package.json against the tag). It authenticates by **trusted publishing
+   (OIDC, no secret)** - configured on npmjs.com under the package's Trusted
+   publisher as `gipsic` / `claude-usage` / `release.yml`, environment blank -
+   or by an `NPM_TOKEN` automation-token secret if one exists. Prefer OIDC: npm
+   is restricting 2FA-bypassing tokens for direct publishing from January 2027.
+   By default the workflow runs `npm stage publish`, not `npm publish`: the
+   trusted publisher's "Allow npm publish" box stays **off** (npm's own
+   recommendation), CI builds and signs the tarball, and a human approves it with
+   `npm stage approve <id>` or on npmjs.com. A first attempt at direct publishing
+   failed with `403 OIDC permission denied for this action` for exactly that
+   reason - the identity was accepted (provenance was signed), the *action* was
+   not. Dispatch with `direct: true` only if that box is ever ticked.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
