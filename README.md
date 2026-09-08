@@ -346,6 +346,11 @@ claude-usage install-daemon          # optionally: --port 4778
 claude-usage uninstall-daemon
 ```
 
+> **After upgrading, restart the tracker.** `npm i -g` (or a `git pull`) replaces
+> the files on disk; the process that is already running keeps the old code until
+> something restarts it. `claude-usage doctor` says when the two disagree, and
+> `claude-usage restart` fixes it in one command.
+
 On macOS this installs a per-user launchd agent (`com.claude-usage.tracker`);
 on Linux a `systemd --user` unit (`claude-usage.service`); on Windows a scheduled
 task (`claude-usage`) that runs at logon through a hidden-window launcher, so no
@@ -409,6 +414,7 @@ claude-usage insights [--range 30d]          averages, peaks, patterns
 claude-usage export  [--range all] [-o f]    CSV export
 claude-usage accounts [add|remove|rename|token]
 claude-usage alerts [on|off|mute 2h|unmute|quiet 22:00-08:00|set W 80,95|test]
+claude-usage restart                       # after upgrading: run the new code
 claude-usage login   [id]                    how to sign in, then verify
 claude-usage menubar [--format swiftbar|json|text]
 claude-usage status                          Anthropic service status

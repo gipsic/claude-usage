@@ -6,8 +6,19 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-09-08
+
 ### Added
+- `claude-usage restart` — restart the background tracker (launchd, systemd or the scheduled task) and report the version that came back. After upgrading, the *old* process keeps running until something restarts it, which looks exactly like the new version not working.
+- `claude-usage doctor` now names the running tracker: `running 1.5.0`, `running 1.4.0, installed 1.5.0 — restart it`, or `not running`.
+
+### Fixed
+- `/api/health` reported a hardcoded `1.0.0` instead of the version actually running, so an agent left over from before an upgrade was invisible. It now returns the real version, its pid and when it started.
+- The dashboard claimed numbers were coming from the desktop app's *cache* whenever Claude Code's token had expired. Since 1.1.0 that is usually wrong: the desktop app's **token** takes over and the numbers stay live from Anthropic. The banner now says which credential is carrying them, and only warns when nothing live is left.
+
+### Documentation
 - [ROADMAP.md](ROADMAP.md) — where native apps and store editions could go, and what the macOS sandbox rules out before any of it is worth building.
+
 
 ## [1.4.0] — 2026-09-07
 
@@ -103,7 +114,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/gipsic/claude-usage/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/gipsic/claude-usage/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/gipsic/claude-usage/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/gipsic/claude-usage/compare/v1.1.0...v1.2.0

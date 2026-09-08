@@ -153,11 +153,19 @@ function renderLimits(sum) {
   const cov = sum.windows.five_hour?.coverage ?? sum.windows.seven_day?.coverage ?? null;
   const scheme = sum.windows.five_hour?.scheme;
   const auth = sum.auth || {};
+  const at = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (auth.present && auth.expired) {
     $('#limits-source').innerHTML =
-      `<span class="warn-note">Your sign-in token expired at ${new Date(auth.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</span> ` +
-      `Claude Code refreshes it the next time you use it, or press <b>Re-auth</b> in Accounts. ` +
+      `<span class="warn-note">Your sign-in token expired at ${at(auth.expiresAt)}.</span> ` +
+      `Claude Code refreshes it the next time you use the CLI, or press <b>Re-auth</b> in Accounts. ` +
       `Until then, numbers come from the Claude desktop app's cache (updated every 15 min while it is open); the per-model window cannot update.`;
+  } else if (auth.superseded) {
+    // Nothing is broken here: the CLI's hourly token lapsed and the desktop
+    // app's took over, so the numbers are still live from Anthropic.
+    $('#limits-source').innerHTML =
+      `Claude Code's own token expired at ${at(auth.superseded.expiresAt)}; ` +
+      `numbers are coming from the <b>Claude desktop app's token</b> instead — still live from Anthropic, nothing to do. ` +
+      `Using the <code>claude</code> CLI refreshes its own token again.`;
   } else if (!anyLive) {
     $('#limits-source').innerHTML =
       'Not calibrated yet — run <code>claude-usage poll</code> while you work so percentages come from Anthropic instead of local estimates.';
