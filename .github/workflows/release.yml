@@ -42,6 +42,10 @@ on:
         description: 'Also publish to GitHub Packages (npm.pkg.github.com)'
         type: boolean
         default: true
+      npm_registry:
+        description: 'Publish to npmjs.org (turn off to re-run only the GitHub Packages mirror)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -49,6 +53,7 @@ permissions:
 
 jobs:
   publish:
+    if: ${{ inputs.npm_registry }}
     runs-on: ubuntu-latest
     env:
       # `secrets` cannot be read inside an `if:`, so the decision is made here.
