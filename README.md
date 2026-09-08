@@ -476,6 +476,13 @@ ln -s "$PWD/bin/claude-usage.1m.sh" \
       ~/Library/Application\ Support/SwiftBar/claude-usage.1m.sh
 ```
 
+Installed with Homebrew, the plugin lives under the formula's `libexec`:
+
+```bash
+ln -s "$(brew --prefix)/opt/claude-usage/libexec/bin/claude-usage.1m.sh" \
+      ~/Library/Application\ Support/SwiftBar/claude-usage.1m.sh
+```
+
 The bar shows `⏣ 42% · 20%` (session · weekly), coloured amber past 70% and red
 past 90%. The dropdown carries each window with a progress bar, reset countdown
 and spend, plus links to the dashboard and to Anthropic's status page. Rename the

@@ -50,7 +50,7 @@ claude-usage serve --open
 | ตั้งเตือนตอนใกล้ชน limit | `claude-usage alerts` — ดู/แก้ได้จาก dashboard → **Alerts → Settings** ด้วย |
 | ขอเงียบสักพัก (ไม่ปิดทั้งระบบ) | `claude-usage alerts mute 2h` หรือ `alerts quiet 22:00-08:00` |
 | **อัปเกรดแล้วตัวเลขไม่เปลี่ยน** | `claude-usage restart` — ตัวที่รันอยู่ยังเป็นโค้ดเก่าจนกว่าจะ restart |
-| ขึ้น menu bar (macOS) | ติดตั้ง [SwiftBar](https://swiftbar.app) แล้ว `ln -s "$(brew --prefix)/opt/claude-usage/bin/claude-usage.1m.sh" ~/Library/Application\ Support/SwiftBar/` |
+| ขึ้น menu bar (macOS) | ติดตั้ง [SwiftBar](https://swiftbar.app) แล้ว `ln -s "$(brew --prefix)/opt/claude-usage/libexec/bin/claude-usage.1m.sh" ~/Library/Application\ Support/SwiftBar/` |
 | export CSV | ปุ่ม Export ใน dashboard หรือ `claude-usage export -o usage.csv` |
 | เช็คว่าทุกอย่างโอเคไหม | `claude-usage doctor` |
 | เลิกใช้ | `claude-usage uninstall-daemon` แล้วลบโฟลเดอร์ |
