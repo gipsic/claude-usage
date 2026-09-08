@@ -103,11 +103,16 @@ sh "$DEST/bin/install.sh" >/dev/null
 BIN_DIR=""
 for D in "$HOME/.local/bin" /opt/homebrew/bin /usr/local/bin; do [ -L "$D/claude-usage" ] && { BIN_DIR="$D"; break; }; done
 note "$BIN_DIR/claude-usage"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *)
-  RC="$HOME/.zshrc"; [ -n "$BASH_VERSION" ] && RC="$HOME/.bashrc"
-  grep -qs "$BIN_DIR" "$RC" || printf '\n# claude-usage\nexport PATH="%s:$PATH"\n' "$BIN_DIR" >> "$RC"
-  note "added $BIN_DIR to PATH in $RC (open a new terminal to pick it up)" ;;
-esac
+# Decide from the shell profile, not from this session's PATH: a PATH that only
+# has the directory because of how the installer happened to be launched leaves
+# the user with "command not found" in every new terminal afterwards.
+RC="$HOME/.zshrc"; [ -n "$BASH_VERSION" ] && RC="$HOME/.bashrc"
+if grep -qs "$BIN_DIR" "$RC"; then
+  case ":$PATH:" in *":$BIN_DIR:"*) ;; *) note "$BIN_DIR is in $RC — open a new terminal to pick it up" ;; esac
+else
+  printf '\n# claude-usage\nexport PATH="%s:$PATH"\n' "$BIN_DIR" >> "$RC"
+  note "added $BIN_DIR to PATH in $RC (open a new terminal to pick it up)"
+fi
 
 # --- first scan + service + app -------------------------------------------------
 say "Scanning your Claude Code history"
