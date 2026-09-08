@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.8] — 2026-09-09
+
+### Fixed
+- The menu-bar instructions pointed at `opt/claude-usage/bin/…` for Homebrew installs; the formula puts everything under `libexec`, so the symlink was dangling. Both the Thai quickstart and the README now give the path that exists.
+
+### Changed
+- Releases can now be published from the *Publish to npm* workflow with **trusted publishing** — no npm token stored anywhere, and provenance recorded by the registry.
+
 ## [1.5.7] — 2026-09-09
 
 ### Fixed
@@ -151,7 +159,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.7...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.8...HEAD
+[1.5.8]: https://github.com/gipsic/claude-usage/compare/v1.5.7...v1.5.8
 [1.5.7]: https://github.com/gipsic/claude-usage/compare/v1.5.6...v1.5.7
 [1.5.6]: https://github.com/gipsic/claude-usage/compare/v1.5.5...v1.5.6
 [1.5.5]: https://github.com/gipsic/claude-usage/compare/v1.5.4...v1.5.5
