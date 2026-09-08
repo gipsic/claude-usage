@@ -202,6 +202,39 @@ claude-usage alerts test                 # does a notification reach me at all?
 A muted or quiet-hours alert is still recorded, so unmuting never dumps a
 backlog of banners at you.
 
+## Is this the right tool for you?
+
+There is a good, popular tool in this space already:
+[**ccusage**](https://github.com/ccusage/ccusage) (MIT). Its README says it reads
+local usage data from **sixteen** coding-agent CLIs — Claude Code, Codex, Gemini,
+Copilot, Qwen, Goose and more — and turns them into daily, weekly, monthly and
+session reports in the terminal, with `npx ccusage@latest` and nothing to
+install. If that is your question, use it; it answers it better than this does.
+
+claude-usage answers a narrower question about one tool:
+
+| What you want | Reach for |
+| --- | --- |
+| Spend across **several** agent CLIs, one report | ccusage |
+| A one-off number in the terminal, nothing installed | ccusage (`npx`) |
+| **How close am I to my Claude plan limit, and when exactly does it reset?** | claude-usage |
+| Per-model weekly windows (e.g. Fable) as Anthropic reports them | claude-usage |
+| Burn rate, projection to 100%, notifications before you hit it | claude-usage |
+| Months of limit history — the desktop app keeps ~30 days and drops the rest | claude-usage |
+| A dashboard that keeps running and recording in the background | claude-usage |
+
+The dividing line is where the percentages come from. claude-usage asks
+Anthropic's own usage endpoint with the login Claude Code already has, so the
+numbers and reset times are the account's real ones — including usage from
+claude.ai, mobile and your other machines — and it records them so you have a
+history later. That is also why it needs a credential and a background service,
+which is a real cost: a tool you run with `npx` needs neither.
+
+Both are MIT, both read-only, both keep your data on your machine, and nothing
+stops you from running both. If something above is wrong or out of date, please
+[open an issue](https://github.com/gipsic/claude-usage/issues) — this table is
+meant to help you choose, not to win an argument.
+
 ## Feature parity with *Usage for Claude*
 
 | | |

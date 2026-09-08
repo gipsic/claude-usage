@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.5] — 2026-09-09
+
+### Documentation
+- README: a factual "Is this the right tool for you?" section that names ccusage, describes it from its own README (sixteen agent CLIs, terminal reports, `npx`, no install), and sorts by the question you are asking rather than by feature count. Both tools are MIT, read-only and local; running both is fine.
+
 ## [1.5.4] — 2026-09-09
 
 ### Added
@@ -136,7 +141,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.4...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.5...HEAD
+[1.5.5]: https://github.com/gipsic/claude-usage/compare/v1.5.4...v1.5.5
 [1.5.4]: https://github.com/gipsic/claude-usage/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/gipsic/claude-usage/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/gipsic/claude-usage/compare/v1.5.1...v1.5.2
