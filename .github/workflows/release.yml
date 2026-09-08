@@ -7,9 +7,17 @@ name: Publish to npm
 # records, and verifies, that this exact tarball was built from this repo at this
 # commit by this workflow - a signed link from published bytes back to source.
 #
-# Needs one repository secret: NPM_TOKEN, an npm *automation* token
-# (npmjs.com -> Access Tokens -> Granular, read+write on @gipsic/claude-usage).
-# Automation tokens are exempt from the 2FA prompt, which is what lets CI publish.
+# Two ways to authenticate, in order of preference:
+#
+# 1. Trusted publishing (OIDC), no secret at all. On npmjs.com: the package ->
+#    Settings -> Trusted publisher -> GitHub Actions, with this repository and
+#    this workflow's filename. npm then trusts a short-lived OIDC token minted by
+#    Actions for this exact workflow. This is also the route npm is pushing
+#    everyone towards: tokens that bypass 2FA are being restricted for direct
+#    publishing from January 2027.
+# 2. An npm *automation* token in the repository secret NPM_TOKEN
+#    (npmjs.com -> Access Tokens -> Granular, read+write on @gipsic/claude-usage).
+#    Used automatically if the secret exists; nothing else to change.
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +36,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # `secrets` cannot be read inside an `if:`, so the decision is made here.
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +47,10 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - name: npm 11
+        run: npm install -g npm@latest && npm --version
 
       # Never publish something that is not green, and never publish a tarball
       # whose version does not match the tag being released.
@@ -46,7 +61,15 @@ jobs:
           [ "$PKG" = "${{ inputs.tag }}" ] || { echo "package.json is $PKG but the tag is ${{ inputs.tag }}"; exit 1; }
 
       - run: npm pack --dry-run
-      - if: ${{ !inputs.dry_run }}
+
+      # Provenance either way: the registry records that this tarball was built
+      # from this repository at this commit by this workflow.
+      - name: publish (trusted publishing)
+        if: ${{ !inputs.dry_run && env.HAS_NPM_TOKEN != 'true' }}
+        run: npm publish --provenance --access public
+
+      - name: publish (automation token)
+        if: ${{ !inputs.dry_run && env.HAS_NPM_TOKEN == 'true' }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
