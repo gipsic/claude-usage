@@ -111,3 +111,13 @@ test('alert settings can be changed over the API without losing their neighbours
   assert.equal(saved.config.alerts.burnWarning, before.burnWarning, 'untouched keys survive');
   assert.equal(saved.config.port, (await fetchJson(`${base}/api/config`)).body.port);
 });
+
+test('health reports the version actually running, not a literal', async () => {
+  const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const r = await fetchJson(`${base}/api/health`);
+  // It was hardcoded to 1.0.0 once, which made an agent left running across an
+  // upgrade impossible to spot.
+  assert.equal(r.body.version, pkg.version);
+  assert.equal(r.body.pid, process.pid);
+  assert.ok(r.body.startedAt <= Date.now());
+});

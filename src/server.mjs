@@ -5,7 +5,7 @@ import url from 'node:url';
 import { open, setMeta, getMeta } from './db.mjs';
 import { loadConfig, saveConfig, CONFIG_PATH, deepMerge } from './config.mjs';
 import { scan } from './scanner.mjs';
-import { fetchUsage, recordUsage, readToken, MIN_POLL_MS } from './oauth.mjs';
+import { fetchUsage, recordUsage, readToken, MIN_POLL_MS, VERSION } from './oauth.mjs';
 import { limitState, calibrate, loadCalibration, weightScheme, WINDOWS } from './limits.mjs';
 import { importDesktopHistory } from './desktop.mjs';
 import { serviceStatus } from './status.mjs';
@@ -16,6 +16,7 @@ import * as WebLogin from './weblogin.mjs';
 import * as A from './analytics.mjs';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
+const STARTED_AT = Date.now();
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
@@ -162,7 +163,11 @@ export function createServer(rt) {
           return serveStatic(res, u.pathname);
 
         case '/api/health':
-          return json(res, { ok: true, version: '1.0.0', dataDir: path.dirname(CONFIG_PATH),
+          // The version is the running process's, not the one on disk: an agent
+          // started before an upgrade keeps serving the old code until it is
+          // restarted, and this is how `doctor` notices.
+          return json(res, { ok: true, version: VERSION, pid: process.pid, startedAt: STARTED_AT,
+            dataDir: path.dirname(CONFIG_PATH),
             lastScan: Number(getMeta(rt.db, 'lastScan', 0)), lastPoll: Number(getMeta(rt.db, 'lastPoll', 0)) });
 
         case '/api/accounts': {
@@ -339,7 +344,15 @@ function authState(rt, account) {
   const acct = rt.cfg.accounts.find((a) => a.id === account) || rt.cfg.accounts[0];
   const tok = readToken({ configDir: acct?.configDir, accountId: acct?.id });
   if (!tok) return { present: false, expired: false, expiresAt: null };
-  return { present: true, expired: !!(tok.expiresAt && tok.expiresAt < Date.now()), expiresAt: tok.expiresAt ?? null, source: tok.source };
+  return {
+    present: true,
+    expired: !!(tok.expiresAt && tok.expiresAt < Date.now()),
+    expiresAt: tok.expiresAt ?? null,
+    source: tok.source,
+    // Set when a live credential took over from an expired one - the usual case
+    // being Claude Code's hourly token lapsing while the desktop app's holds.
+    superseded: tok.superseded ?? null,
+  };
 }
 
 function withHints(rt) {

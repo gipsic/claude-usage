@@ -34,11 +34,14 @@ export function readToken({ configDir, accountId, fresh = false } = {}) {
   const now = Date.now();
   const live = (c) => c && (!c.expiresAt || c.expiresAt > now);
   let stale = null;
-  // Keep the freshest expired credential in case nothing live turns up.
+  // Keep the freshest expired credential in case nothing live turns up. A live
+  // credential found later carries it as `superseded`, so callers can say
+  // "Claude Code's own token lapsed, this one took over" instead of going quiet.
   const keep = (c) => {
     if (c && (!stale || (c.expiresAt ?? 0) > (stale.expiresAt ?? 0))) stale = c;
     return null;
   };
+  const won = (c) => (stale ? { ...c, superseded: { source: stale.source, expiresAt: stale.expiresAt ?? null } } : c);
 
   // A token this tool was given explicitly wins, so a second account can be
   // signed in without touching Claude Code's own login.
@@ -70,12 +73,12 @@ export function readToken({ configDir, accountId, fresh = false } = {}) {
   // real login keychain.
   if (process.platform === 'darwin' && !process.env.CLAUDE_USAGE_NO_KEYCHAIN) {
     const found = keychainToken({ fresh });
-    if (live(found)) return found;
+    if (live(found)) return won(found);
     keep(found);
 
     const acct = accountInfo(configDir);
     const app = desktopToken({ accountUuid: acct?.accountUuid, orgUuid: acct?.organizationUuid, now });
-    if (app) return app;
+    if (app) return won(app);
   }
   return stale;
 }

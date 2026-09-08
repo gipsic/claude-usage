@@ -160,4 +160,7 @@ test('readToken returns a live credential file straight away', () => {
   const t = oauth.readToken({ configDir: dir });
   assert.equal(t.token, 'good');
   assert.equal(t.source, 'file');
+  // `superseded` is set only when a live credential took over from an expired
+  // one; the first source winning outright must not claim it did.
+  assert.equal(t.superseded ?? null, null);
 });

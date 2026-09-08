@@ -102,6 +102,14 @@ live do API-only windows go stale.
 
 - launchd agents cannot exec from `~/Desktop|Documents|Downloads` (TCC) —
   install lives in `~/Applications/claude-usage`; `install-daemon.sh` refuses those paths.
+- **An upgrade does not restart the agent.** Files on disk change; the running
+  process keeps the old code until launchd/systemd/schtasks restarts it. This bit
+  a real user for 14 hours: the daemon had started before the desktop-token
+  fallback shipped, so the dashboard kept reporting an expired sign-in that the
+  installed code would have handled. `/api/health` now returns the *running*
+  version (it was hardcoded `1.0.0`), `doctor` compares it with the installed one,
+  and `claude-usage restart` is the fix. Suspect this first when behaviour does
+  not match the code you are reading.
 - **Only one server per port.** `Claude Usage.app` (Login Item) must *kickstart*
   the agent, never spawn its own `serve` (it did, and the agent crash-looped 17×).
   `serve` exits 75 with a message on EADDRINUSE; launchd ThrottleInterval 60 s.
@@ -117,7 +125,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 57 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 58 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or

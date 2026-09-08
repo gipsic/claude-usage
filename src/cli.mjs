@@ -5,7 +5,7 @@ import url from 'node:url';
 import { createRuntime, createServer, startLoops, scanAll, pollLimits, stateFor, menubarLine } from './server.mjs';
 import { scan } from './scanner.mjs';
 import { calibrate, loadCalibration, WINDOWS } from './limits.mjs';
-import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState } from './oauth.mjs';
+import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState, VERSION } from './oauth.mjs';
 import { serviceStatus } from './status.mjs';
 import { CONFIG_PATH, ensureConfig, saveConfig, deepMerge } from './config.mjs';
 import { DATA_DIR } from './db.mjs';
@@ -186,6 +186,21 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
  * -ExecutionPolicy Bypass because the default policy on Windows client editions
  * refuses to run a downloaded .ps1 at all, and this one ships inside the package.
  */
+/** Ask the running tracker who it is, or null when nothing answers. */
+async function health(port, timeoutMs = 1500) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: ac.signal });
+    return r.ok ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
+const fmtDur = (ms) => {
+  const m = Math.round(ms / 60000);
+  return m < 60 ? `${m}m` : m < 1440 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h`;
+};
+
 function runPowerShell(script, args) {
   execFileSync('powershell', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(ROOT, 'bin', script), ...args,
@@ -374,6 +389,20 @@ const COMMANDS = {
     console.log(`  node                  ${process.version} ${process.arch}`);
     console.log(`  data dir              ${DATA_DIR}`);
     console.log(`  config                ${fs.existsSync(CONFIG_PATH) ? CONFIG_PATH : dim('defaults (not written yet)')}`);
+
+    // A background tracker started before an upgrade keeps running the old code
+    // until something restarts it - which looks exactly like a bug in whatever
+    // the new version fixed. Compare what is running with what is installed.
+    const live = await health(rt.cfg.port);
+    if (!live) {
+      console.log(`  tracker               ${yel('not running')} ${dim(`nothing answering on 127.0.0.1:${rt.cfg.port}`)}`);
+    } else if (live.version !== VERSION) {
+      console.log(`  tracker               ${yel(`running ${live.version}, installed ${VERSION}`)}`);
+      console.log(`                        ${yel('restart it to pick up this version:')} claude-usage restart`);
+    } else {
+      const up = live.startedAt ? dim(`  up ${fmtDur(Date.now() - live.startedAt)}`) : '';
+      console.log(`  tracker               ${grn(`running ${live.version}`)}${up}`);
+    }
     for (const a of rt.cfg.accounts) {
       console.log(`  account ${bold(a.id)}`);
       console.log(`    configDir           ${fs.existsSync(a.configDir) ? grn('ok') : red('missing')} ${a.configDir}`);
@@ -619,6 +648,30 @@ const COMMANDS = {
     throw new Error(`unknown alerts command: ${verb}`);
   },
 
+  /** Restart the background tracker so it runs the code that is installed now. */
+  async restart(rt) {
+    const before = await health(rt.cfg.port);
+    if (IS_MAC) {
+      execFileSync('launchctl', ['kickstart', '-k', `gui/${process.getuid()}/com.claude-usage.tracker`],
+        { stdio: 'inherit' });
+    } else if (IS_WINDOWS) {
+      execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        'Stop-ScheduledTask -TaskName claude-usage -ErrorAction SilentlyContinue; Start-ScheduledTask -TaskName claude-usage'],
+        { stdio: 'inherit' });
+    } else {
+      execFileSync('systemctl', ['--user', 'restart', 'claude-usage.service'], { stdio: 'inherit' });
+    }
+    // Give it a moment to bind the port again, then say what is actually running.
+    for (let i = 0; i < 20; i++) {
+      const now = await health(rt.cfg.port);
+      if (now && now.pid !== before?.pid) {
+        return console.log(`  Tracker restarted — running ${now.version} on 127.0.0.1:${rt.cfg.port}`);
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    console.log(`  Restart requested, but nothing is answering on 127.0.0.1:${rt.cfg.port} yet.`);
+  },
+
   // launchd on macOS, a systemd --user service on Linux, a scheduled task on
   // Windows; all three start the tracker at login and restart it if it dies.
   'install-daemon'(rt, { flags }) {
@@ -654,6 +707,7 @@ ${bold('claude-usage')} — usage, limit tracking and history for Claude Code
   ${bold('status')}                          Anthropic service status
   ${bold('doctor')}                          verify data sources and credentials
   ${bold('config')}  [path|edit]             show / edit configuration
+  ${bold('restart')}                         restart the background tracker (after an upgrade)
   ${bold('install-daemon')} [--dry-run]        run the tracker at login (launchd / systemd / task)
   ${bold('uninstall-daemon')}
 
