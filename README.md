@@ -348,8 +348,9 @@ claude-usage uninstall-daemon
 
 > **After upgrading, restart the tracker.** `npm i -g` (or a `git pull`) replaces
 > the files on disk; the process that is already running keeps the old code until
-> something restarts it. `claude-usage doctor` says when the two disagree, and
-> `claude-usage restart` fixes it in one command.
+> something restarts it. The version beside the dashboard title is the one
+> actually running, `claude-usage doctor` says when it disagrees with what is
+> installed, and `claude-usage restart` fixes it in one command.
 
 On macOS this installs a per-user launchd agent (`com.claude-usage.tracker`);
 on Linux a `systemd --user` unit (`claude-usage.service`); on Windows a scheduled
