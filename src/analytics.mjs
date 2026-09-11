@@ -96,15 +96,72 @@ export function blocks(db, { account = 'default', range = '30d', now = Date.now(
     e.weight = weightOf(e, scheme);
     return e;
   });
-  const bs = sessionBlocks(evs, FIVE_H);
-  return bs.slice(-limit).reverse().map((b) => ({
-    start: b.start, end: b.end, firstTs: b.firstTs, lastTs: b.lastTs,
-    active: b.end > now,
-    durationMs: b.lastTs - b.firstTs,
-    events: b.events, tokens: b.tokens, cost: b.cost, weight: b.weight,
-    input: b.input, output: b.output, cacheRead: b.cacheRead, cacheWrite: b.cacheWrite,
-    models: b.models, projects: b.projects,
-  }));
+
+  // The same windows the Usage history chart draws, so a row and a box always
+  // describe the same five hours. Every event lands in exactly one row.
+  const { recorded, local } = fiveHourWindows(limitSamples(db, account, 'five_hour', from, now), evs, from);
+  const rows = [
+    ...recorded.map((w) => {
+      const mine = evs.filter((e) => e.ts >= w.start && e.ts < w.end);
+      const facts = windowFacts(w, mine, now);
+      return {
+        ...facts,
+        // A real window can hold no local requests at all - the usage came from
+        // claude.ai or another machine - and then it has no local duration.
+        durationMs: mine.length ? facts.lastTs - facts.firstTs : null,
+        utilization: Math.max(...w.samples.map((s) => s.u)),
+        source: 'recorded',
+      };
+    }),
+    ...local.map((b) => ({
+      start: b.start, end: b.end, firstTs: b.firstTs, lastTs: b.lastTs,
+      active: b.end > now,
+      durationMs: b.lastTs - b.firstTs,
+      events: b.events, tokens: b.tokens, cost: b.cost, weight: b.weight,
+      input: b.input, output: b.output, cacheRead: b.cacheRead, cacheWrite: b.cacheWrite,
+      models: b.models, projects: b.projects,
+      utilization: null,
+      source: 'local',
+    })),
+  ];
+  return rows.sort((a, b) => b.start - a.start).slice(0, limit);
+}
+
+/** Recorded utilization samples for one window, oldest first. */
+function limitSamples(db, account, win, from, now) {
+  return db.prepare(
+    `SELECT ts, utilization AS u, resets_at AS r FROM limit_snapshots
+      WHERE account = ? AND window = ? AND ts >= ? AND ts <= ? AND utilization IS NOT NULL
+      ORDER BY ts`
+  ).all(account, win, Math.round(from), Math.round(now))
+   .map((r) => ({ t: Number(r.ts), u: r.u, resetsAt: r.r == null ? null : Number(r.r) }));
+}
+
+/**
+ * The 5-hour windows over a stretch of time, cut one way for both the chart and
+ * the Session history table.
+ *
+ * Real windows come from the recorded samples (limits.recordedWindows). Local
+ * session blocks - hour-floored guesses from transcripts - are built only inside
+ * the gaps between real windows and clipped to those gaps, so nothing overlaps
+ * and every event belongs to exactly one window: totals still match the
+ * breakdown, and a stretch with no recording still shows its sessions.
+ */
+function fiveHourWindows(samples, evs, from) {
+  const all = recordedWindows(samples, { span: FIVE_H });
+  const gaps = [];
+  let lo = -Infinity;
+  for (const w of all) { gaps.push([lo, w.start]); lo = w.end; }
+  gaps.push([lo, Infinity]);
+
+  const local = [];
+  for (const [a, b] of gaps) {
+    for (const blk of sessionBlocks(evs.filter((e) => e.ts >= a && e.ts < b), FIVE_H)) {
+      const start = Math.max(blk.start, a), end = Math.min(blk.end, b);
+      if (end > start && end > from) local.push({ ...blk, start, end });
+    }
+  }
+  return { recorded: all.filter((w) => w.end > from), local };
 }
 
 const DIMENSIONS = {
@@ -275,12 +332,7 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
     return e;
   });
 
-  const snapshots = (win) => db.prepare(
-    `SELECT ts, utilization AS u, resets_at AS r FROM limit_snapshots
-      WHERE account = ? AND window = ? AND ts >= ? AND ts <= ? AND utilization IS NOT NULL
-      ORDER BY ts`
-  ).all(account, win, Math.round(from), Math.round(now))
-   .map((r) => ({ t: Number(r.ts), u: r.u, resetsAt: r.r == null ? null : Number(r.r) }));
+  const snapshots = (win) => limitSamples(db, account, win, from, now);
 
   // --- weekly line: the recorded series, verbatim ------------------------
   const weekSnaps = snapshots('seven_day');
@@ -319,15 +371,13 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
 
   // --- 5-hour brackets ---------------------------------------------------
   const fhSnaps = snapshots('five_hour');
-  const raw = sessionBlocks(evs.filter((e) => e.ts >= from - FIVE_H), FIVE_H)
-    .filter((b) => b.end > from);
   const inRange = evs.filter((e) => e.ts >= from);
   let recordedBlocks = 0;
 
   // Recorded windows are cut from the samples (limits.recordedWindows), so their
   // edges are Anthropic's and a ramp never inherits the previous window's height.
   // Local session blocks only fill the stretches that no recording covers.
-  const recorded = recordedWindows(fhSnaps, { span: FIVE_H }).filter((w) => w.end > from);
+  const { recorded, local } = fiveHourWindows(fhSnaps, evs.filter((e) => e.ts >= from - FIVE_H), from);
   const recordedOut = recorded.map((w) => {
     const mine = inRange.filter((e) => e.ts >= w.start && e.ts < w.end);
     // One real window: utilization only rises inside it, so the running peak is
@@ -338,8 +388,7 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
   });
   recordedBlocks = recordedOut.length;
 
-  const covered = (b) => recorded.some((w) => b.start < w.end && b.end > w.start);
-  const estimatedOut = raw.filter((b) => !covered(b)).map((b) => {
+  const estimatedOut = local.map((b) => {
     const mine = inRange.filter((e) => e.ts >= b.start && e.ts < b.end);
     const curve = [];
     let acc = 0, j = 0;

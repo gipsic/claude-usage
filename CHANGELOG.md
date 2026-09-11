@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.11] — 2026-09-11
+
+### Fixed
+- **Session history now lists the same windows the Usage history chart draws.** 1.5.10 fixed the chart, but the table (and `claude-usage blocks`, `/api/blocks`) still grouped requests into hour-floored local guesses, so a row could read "01:00 PM" for a window that really opened at 08:50. Both now share one cut: real windows from the recorded samples, and local session blocks only for activity no recording covers, clipped so nothing overlaps. Every request still lands in exactly one row — on a real month, 47,197 requests and $10,109.48 in the table, the same as the breakdown. Rows also carry the window's peak `utilization` and a `source` of `recorded` or `local`; a real window with no local requests (usage from claude.ai or another machine) shows no duration rather than a misleading zero.
+
 ## [1.5.10] — 2026-09-11
 
 ### Fixed
@@ -169,7 +174,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.10...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.11...HEAD
+[1.5.11]: https://github.com/gipsic/claude-usage/compare/v1.5.10...v1.5.11
 [1.5.10]: https://github.com/gipsic/claude-usage/compare/v1.5.9...v1.5.10
 [1.5.9]: https://github.com/gipsic/claude-usage/compare/v1.5.8...v1.5.9
 [1.5.8]: https://github.com/gipsic/claude-usage/compare/v1.5.7...v1.5.8
