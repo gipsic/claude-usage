@@ -104,8 +104,11 @@ live do API-only windows go stale.
   or a gap > span = reset; start = median `resets_at` - span (the endpoint's value
   drifts up to ~54 min inside one window; distinct windows were >=88 min apart),
   clamped between the previous window's last sample and this one's first.
-  `blocks()` (Session history table, `claude-usage blocks`) still uses
-  `sessionBlocks` - hour-floored, so its window times are approximate.
+  `blocks()` (Session history table, `claude-usage blocks`) uses the same cut
+  since 1.5.11, through `analytics.fiveHourWindows`: recorded windows first,
+  hour-floored `sessionBlocks` only inside the gaps between them and clipped to
+  those gaps - so rows match the chart's boxes, nothing overlaps, and every event
+  sits in exactly one row (table totals must equal `breakdown`; a test checks).
 
 ## Runtime / ops traps (all hit for real)
 
@@ -134,7 +137,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 60 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 61 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or

@@ -84,6 +84,29 @@ test('recordedWindows: zeros belong to no window, and a gap longer than the span
   assert.deepEqual(w.map((x) => x.samples.map((s) => s.u)), [[10, 20], [25]]);
 });
 
+test('Session history rows are the windows the chart draws, and lose nothing', () => {
+  db.exec('DELETE FROM limit_snapshots');
+  const ins = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',?,?)");
+  const M = 60e3, H = 60 * M, day = Date.parse('2026-09-01T00:00:00Z');
+  const resetA = day + 5 * H + 10 * M;
+  [[4 * H + 30 * M, 80], [4 * H + 50 * M, 95], [5 * H + 2 * M, 100]].forEach(([dt, u]) => ins.run(day + dt, u, resetA));
+  [[5 * H + 12 * M, 0], [5 * H + 20 * M, 3], [6 * H + 30 * M, 21]].forEach(([dt, u]) => ins.run(day + dt, u, resetA + 5 * H));
+
+  const chart = A.timeline(db, { account: 'default', range: '7d', now: NOW, capacity: {} })
+    .blocks.filter((b) => b.source === 'recorded').map((b) => b.start);
+  const rows = A.blocks(db, { account: 'default', range: '7d', now: NOW });
+  const recordedRows = rows.filter((r) => r.source === 'recorded').map((r) => r.start).sort((a, b) => a - b);
+  assert.deepEqual(recordedRows, chart, 'one row per chart box, starting at the same instant');
+  assert.equal(new Date(recordedRows[1]).toISOString(), '2026-09-01T05:10:00.000Z', 'not floored to 05:00');
+
+  const total = A.breakdown(db, { account: 'default', by: 'model', range: '7d', now: NOW })
+    .reduce((n, r) => n + r.events, 0);
+  assert.equal(rows.reduce((n, r) => n + r.events, 0), total, 'every request is in exactly one row');
+  const byTime = [...rows].sort((a, b) => a.start - b.start);
+  assert.ok(byTime.every((r, i) => i === 0 || r.start >= byTime[i - 1].end), 'rows never overlap');
+  assert.ok(rows.every((r, i) => i === 0 || r.start <= rows[i - 1].start), 'newest first');
+});
+
 test('insights and csv produce sane output', () => {
   const i = A.insights(db, { account: 'default', range: '30d', now: NOW });
   assert.equal(i.hourOfDay.length, 24);
