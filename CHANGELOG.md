@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.5.10] — 2026-09-11
+
+### Fixed
+- **Usage history drew a fresh 5-hour window as already full.** The chart's window boxes were guessed from local activity — floored to the hour, blind to claude.ai and other machines — so they missed the real windows by 10–50 minutes. Samples recorded just before a reset landed inside the next box, and its running peak painted the new window at the old window's height from its left edge (100% boxes that were really 0% → 18%). Windows are now cut from the recorded samples themselves: a zero belongs to no window, a fall or a gap longer than five hours is a reset, and the endpoint's `resets_at` (median, since it drifts by up to an hour inside one window) places the edge. On a real week of data: 24 windows, none overlapping, none starting at the previous one's peak. Local blocks still fill stretches nothing was recorded for.
+
 ## [1.5.9] — 2026-09-09
 
 ### Documentation
@@ -164,7 +169,8 @@ First public release.
   build script, one-line installer (`install.sh`) and `uninstall.sh`.
 - 32 isolated tests; CI on Node 22 and 24.
 
-[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.9...HEAD
+[Unreleased]: https://github.com/gipsic/claude-usage/compare/v1.5.10...HEAD
+[1.5.10]: https://github.com/gipsic/claude-usage/compare/v1.5.9...v1.5.10
 [1.5.9]: https://github.com/gipsic/claude-usage/compare/v1.5.8...v1.5.9
 [1.5.8]: https://github.com/gipsic/claude-usage/compare/v1.5.7...v1.5.8
 [1.5.7]: https://github.com/gipsic/claude-usage/compare/v1.5.6...v1.5.7

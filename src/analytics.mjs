@@ -1,4 +1,4 @@
-import { sessionBlocks, FIVE_H, HOUR } from './limits.mjs';
+import { sessionBlocks, recordedWindows, FIVE_H, HOUR } from './limits.mjs';
 import { weightOf, DEFAULT_WEIGHT } from './pricing.mjs';
 
 const DAY = 24 * HOUR;
@@ -324,22 +324,23 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
   const inRange = evs.filter((e) => e.ts >= from);
   let recordedBlocks = 0;
 
-  const blocks = raw.map((b) => {
+  // Recorded windows are cut from the samples (limits.recordedWindows), so their
+  // edges are Anthropic's and a ramp never inherits the previous window's height.
+  // Local session blocks only fill the stretches that no recording covers.
+  const recorded = recordedWindows(fhSnaps, { span: FIVE_H }).filter((w) => w.end > from);
+  const recordedOut = recorded.map((w) => {
+    const mine = inRange.filter((e) => e.ts >= w.start && e.ts < w.end);
+    // One real window: utilization only rises inside it, so the running peak is
+    // the true ramp here, not a mask over a reset.
+    let peak = 0;
+    const curve = w.samples.map((s) => ({ t: s.t, u: (peak = Math.max(peak, s.u)) }));
+    return { ...windowFacts(w, mine, now), utilization: peak, curve, source: 'recorded' };
+  });
+  recordedBlocks = recordedOut.length;
+
+  const covered = (b) => recorded.some((w) => b.start < w.end && b.end > w.start);
+  const estimatedOut = raw.filter((b) => !covered(b)).map((b) => {
     const mine = inRange.filter((e) => e.ts >= b.start && e.ts < b.end);
-    const inside = fhSnaps.filter((s) => s.t >= b.start && s.t <= Math.min(b.end, now));
-
-    if (inside.length >= 2) {
-      // Real samples cover this window: its height and ramp are measured, and the
-      // ramp is made monotonic because a dip only means the next window began.
-      recordedBlocks++;
-      let peak = 0;
-      const curve = inside.map((s) => {
-        peak = Math.max(peak, s.u);
-        return { t: s.t, u: peak };
-      });
-      return { ...blockFacts(b, mine), utilization: peak, curve, source: 'recorded' };
-    }
-
     const curve = [];
     let acc = 0, j = 0;
     for (let k = 1; k <= samples; k++) {
@@ -354,6 +355,8 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
       source: blockCap ? 'estimated' : 'relative',
     };
   });
+
+  const blocks = [...recordedOut, ...estimatedOut].sort((a, b) => a.start - b.start);
 
   const relative = !blockCap && recordedBlocks === 0;
   if (relative) {
@@ -374,6 +377,28 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
     relative, relativeWeekly, weeklySource,
     recordedBlocks, totalBlocks: blocks.length,
     capacity: { block: blockCap, week: capacity.seven_day?.capacity || null },
+  };
+}
+
+/** The same facts blockFacts() gives a local block, for a window cut from samples. */
+function windowFacts(w, mine, now) {
+  const models = {}, projects = {};
+  let tokens = 0, cost = 0, weight = 0, input = 0, output = 0, cacheRead = 0, cacheWrite = 0;
+  for (const e of mine) {
+    cost += e.cost; weight += e.weight;
+    input += e.input; output += e.output; cacheRead += e.cache_read; cacheWrite += e.cache_creation;
+    tokens += e.input + e.output + e.cache_read + e.cache_creation;
+    models[e.model] = (models[e.model] || 0) + e.cost;
+    if (e.project) projects[e.project] = (projects[e.project] || 0) + e.cost;
+  }
+  const byCost = (o) => Object.fromEntries(Object.entries(o).sort((x, y) => y[1] - x[1]));
+  return {
+    start: w.start, end: w.end,
+    firstTs: mine[0]?.ts ?? null, lastTs: mine.at(-1)?.ts ?? null,
+    active: w.end > now,
+    events: mine.length, tokens, cost, weight, input, output, cacheRead, cacheWrite,
+    models: byCost(models), projects: byCost(projects),
+    rangeEvents: mine.length,
   };
 }
 

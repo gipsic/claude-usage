@@ -44,6 +44,46 @@ test('timeline prefers recorded percentages when snapshots cover a window', () =
   assert.ok(rec.curve.every((c, i, a) => i === 0 || c.u >= a[i - 1].u), 'ramp is monotonic');
 });
 
+test('a reset inside a local hour does not paint the next window as already full', () => {
+  // The shape seen on a real dashboard: a window hits 100% and resets at :10,
+  // not on the hour; the samples straddling the reset used to share one guessed
+  // hour-floored block, whose running peak drew the new window full from its edge.
+  db.exec('DELETE FROM limit_snapshots');
+  const ins = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',?,?)");
+  const M = 60e3, H = 60 * M, day = Date.parse('2026-09-01T00:00:00Z');
+  const resetA = day + 5 * H + 10 * M;
+  // Window A, with the endpoint's resets_at drifting ±22 minutes as it really does.
+  [[4 * H + 30 * M, 80], [4 * H + 50 * M, 95], [5 * H + 2 * M, 100]]
+    .forEach(([dt, u], i) => ins.run(day + dt, u, resetA + (i - 1) * 22 * M));
+  // The reset, then window B climbing from nothing.
+  [[5 * H + 12 * M, 0], [5 * H + 20 * M, 3], [5 * H + 40 * M, 9], [6 * H + 30 * M, 21]]
+    .forEach(([dt, u]) => ins.run(day + dt, u, resetA + 5 * H));
+
+  const t = A.timeline(db, { account: 'default', range: '7d', now: NOW, capacity: {} });
+  const rec = t.blocks.filter((b) => b.source === 'recorded');
+  assert.equal(rec.length, 2, 'two real windows, and the jitter did not split window A');
+  const [a, b] = rec;
+  assert.equal(a.utilization, 100);
+  assert.equal(b.utilization, 21);
+  assert.ok(b.curve[0].u <= 3, 'the new window starts near zero, not at the previous peak');
+  assert.ok(b.curve.every((c) => c.u < 100), 'nothing of window A leaks into window B');
+  assert.ok(a.end <= b.start, 'windows never overlap');
+  assert.ok(b.start <= b.curve[0].t && a.start <= a.curve[0].t, 'each window contains its own samples');
+  assert.equal(new Date(b.start).toISOString(), '2026-09-01T05:10:00.000Z', 'edge taken from resets_at, not the hour');
+});
+
+test('recordedWindows: zeros belong to no window, and a gap longer than the span splits', () => {
+  const H = 3600e3;
+  const w = L.recordedWindows([
+    { t: 0, u: 0, resetsAt: null },
+    { t: 1 * H, u: 10, resetsAt: null },
+    { t: 2 * H, u: 20, resetsAt: null },
+    { t: 9 * H, u: 25, resetsAt: null },   // more than 5h later: a new window even though it rose
+  ]);
+  assert.equal(w.length, 2);
+  assert.deepEqual(w.map((x) => x.samples.map((s) => s.u)), [[10, 20], [25]]);
+});
+
 test('insights and csv produce sane output', () => {
   const i = A.insights(db, { account: 'default', range: '30d', now: NOW });
   assert.equal(i.hourOfDay.length, 24);

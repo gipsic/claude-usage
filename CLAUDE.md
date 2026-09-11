@@ -96,7 +96,16 @@ live do API-only windows go stale.
   nothing sent since ⇒ `idle` (0 %, no reset) — but only with evidence a window
   ever existed; a blank install stays `null`. Snapshot age > 20 min ⇒ `stale`.
 - **Timeline chart** draws recorded snapshots verbatim; only uncovered stretches
-  fall back to the calibrated estimate (legend says which).
+  fall back to the calibrated estimate (legend says which). Its 5-hour boxes are
+  cut by `limits.recordedWindows` from the samples, **not** by `sessionBlocks`:
+  local blocks are hour-floored guesses that missed real windows by 10-50 min, so
+  pre-reset samples fell into the next box and its running peak drew a new window
+  full from its edge (fixed in 1.5.10). Rules: zero = no window; a fall >2 points
+  or a gap > span = reset; start = median `resets_at` - span (the endpoint's value
+  drifts up to ~54 min inside one window; distinct windows were >=88 min apart),
+  clamped between the previous window's last sample and this one's first.
+  `blocks()` (Session history table, `claude-usage blocks`) still uses
+  `sessionBlocks` - hour-floored, so its window times are approximate.
 
 ## Runtime / ops traps (all hit for real)
 
@@ -125,7 +134,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 58 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 60 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
