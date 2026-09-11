@@ -54,6 +54,51 @@ export function sessionBlocks(events, span = FIVE_H) {
 }
 
 /**
+ * Cut recorded utilization samples into the real windows they belong to.
+ *
+ * sessionBlocks() guesses windows from local activity - floored to the hour and
+ * blind to claude.ai, mobile and other machines - so its edges miss the real ones
+ * by 10-50 minutes. Samples recorded just before a reset then land inside the next
+ * guessed block, and a running peak paints that fresh window as already full. The
+ * samples themselves say where the windows are:
+ *
+ * - utilization is zero while no window is open, so a zero belongs to no window;
+ * - inside one window it only rises, so a fall of more than a couple of points is
+ *   a reset, and so is a gap longer than the span;
+ * - `resetsAt` pins the start, but the endpoint's value drifts by up to an hour
+ *   within a single window, so the median is used, and the start is kept between
+ *   the previous window's last sample and this window's first. Windows never
+ *   overlap and every window contains all of its own samples.
+ *
+ * @param {{t:number, u:number, resetsAt:number|null}[]} samples sorted by t
+ * @returns {{start:number, end:number, samples:object[]}[]}
+ */
+export function recordedWindows(samples, { span = FIVE_H } = {}) {
+  const groups = [];
+  let cur = null, prev = null;
+  for (const s of samples) {
+    if (prev && (s.u === 0 || s.u < prev.u - 2 || s.t - prev.t > span)) cur = null;
+    if (s.u > 0) {
+      if (!cur) { cur = []; groups.push(cur); }
+      cur.push(s);
+    }
+    prev = s;
+  }
+
+  const out = [];
+  for (const g of groups) {
+    const first = g[0];
+    const resets = g.map((s) => s.resetsAt).filter((r) => r != null).sort((a, b) => a - b);
+    let start = resets.length ? resets[Math.floor(resets.length / 2)] - span : first.t;
+    const before = out.at(-1);
+    start = Math.min(first.t, Math.max(start, before ? before.samples.at(-1).t : -Infinity));
+    if (before) before.end = Math.min(before.end, start);
+    out.push({ start, end: start + span, samples: g });
+  }
+  return out;
+}
+
+/**
  * Every window to report: the known ones, plus any scoped window Anthropic has
  * actually sent us (a per-model weekly limit, say). Scoped windows have no local
  * family mapping, so they are reported straight from the API without estimation.
