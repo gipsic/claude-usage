@@ -111,7 +111,7 @@ function limitCard(s) {
     ? `${fmtMoney(s.local.cost)} · ${fmtCompact(s.local.tokens)} tok`
     : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`) +
     (s.scoped && s.families?.length
-      ? ` <span class="muted" title="Only ${esc(s.families.join(', '))} requests in your transcripts count towards this window; it is calibrated and estimated on those alone.">${esc(s.families.join(', '))} only</span>`
+      ? ` · <span class="muted" title="Only ${esc(s.families.join(', '))} requests in your transcripts count towards this window; it is calibrated and estimated on those alone.">${esc(s.families.join(', '))} only</span>`
       : ''));
   if (s.snapshotAt) {
     const age = Math.round((Date.now() - s.snapshotAt) / 1000);

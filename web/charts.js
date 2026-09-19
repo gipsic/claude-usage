@@ -26,6 +26,7 @@ export const fmtCompact = (n) => {
   if (a >= 1e9) return (n / 1e9).toFixed(a >= 1e10 ? 0 : 1) + 'B';
   if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
   if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1) + 'k';
+  if (Number.isInteger(n)) return String(n);      // a count: 60, not 60.0
   return a >= 100 ? n.toFixed(0) : a >= 1 ? n.toFixed(1) : n.toFixed(2);
 };
 export const fmtMoney = (n) => {

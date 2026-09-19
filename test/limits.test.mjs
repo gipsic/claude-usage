@@ -165,6 +165,26 @@ test('a scoped weekly window is calibrated on its own family only', () => {
   assert.ok(advance > 0 && advance < 2, `one Fable request moves the estimate a little, not an Opus-sized jump (${advance.toFixed(2)})`);
 });
 
+test('a newer desktop-cache sample does not lose the reset time the API reported', () => {
+  const db = DB.open();
+  db.exec('DELETE FROM limit_snapshots; DELETE FROM limit_events');
+  const ins = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',?,?)");
+  const now = Date.parse('2026-09-20T00:49:00+07:00');
+  const resetsAt = now + 4 * HOUR;
+  ins.run(now - 49e3, 23, resetsAt);          // API poll, with resets_at
+  ins.run(now - 20e3, 24, null);              // desktop cache, newer, no resets_at
+  const snap = L.latestSnapshots(db)['five_hour'];
+  assert.equal(snap.utilization, 24, 'the newest percentage');
+  assert.equal(snap.resetsAt, resetsAt, 'the reported reset time is carried forward');
+  const st = L.limitState(db, { account: 'default', now });
+  assert.equal(st.five_hour.resetSource, 'api');
+  // A reset time already in the past at the newer sample is a different window: drop it.
+  db.exec('DELETE FROM limit_snapshots');
+  ins.run(now - 49e3, 90, now - 30e3);
+  ins.run(now - 20e3, 2, null);
+  assert.equal(L.latestSnapshots(db)['five_hour'].resetsAt, null);
+});
+
 test('limitState labels sources honestly', () => {
   const db = DB.open();
   const st = L.limitState(db, { account: 'default' });

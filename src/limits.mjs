@@ -410,7 +410,17 @@ export function anchoredReset(db, win, { account = 'default', now = Date.now() }
   return start == null ? null : start + FIVE_H;
 }
 
-/** Most recent snapshot per window, from the OAuth poll or the desktop cache. */
+/**
+ * Most recent snapshot per window, from the OAuth poll or the desktop cache.
+ *
+ * The two sources interleave: the desktop cache is imported every 30 s and its
+ * newest sample never carries `resets_at` (no later drop has been seen yet),
+ * while the API poll every 3 min does. Whenever the cache sample was the newer
+ * of the two, the reset time went missing and the card flipped to "inferred"
+ * with live data in hand. So the newest sample supplies the percentage, and a
+ * reset time reported for the same window - one still in the future at that
+ * sample's time - is carried forward with it.
+ */
 export function latestSnapshots(db, account = 'default') {
   const rows = db.prepare(
     `SELECT s.window, s.ts, s.utilization, s.resets_at FROM limit_snapshots s
@@ -418,9 +428,19 @@ export function latestSnapshots(db, account = 'default') {
         ON m.window = s.window AND m.mts = s.ts
      WHERE s.account = ?`
   ).all(account, account);
-  return Object.fromEntries(rows.map((r) => [r.window, {
-    ts: Number(r.ts), utilization: r.utilization, resetsAt: r.resets_at == null ? null : Number(r.resets_at),
-  }]));
+  const lastReported = db.prepare(
+    `SELECT resets_at FROM limit_snapshots
+      WHERE account = ? AND window = ? AND resets_at IS NOT NULL AND ts <= ?
+      ORDER BY ts DESC LIMIT 1`);
+  return Object.fromEntries(rows.map((r) => {
+    const ts = Number(r.ts);
+    let resetsAt = r.resets_at == null ? null : Number(r.resets_at);
+    if (resetsAt == null) {
+      const prev = lastReported.get(account, r.window, ts);
+      if (prev && Number(prev.resets_at) > ts) resetsAt = Number(prev.resets_at);
+    }
+    return [r.window, { ts, utilization: r.utilization, resetsAt }];
+  }));
 }
 
 /**
