@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.3] — 2026-09-20
+
+### Added
+- **Session history shows which projects each 5-hour window went to.** A Projects column with the top two by cost (hover for the amount) and a count of the rest; `claude-usage blocks` prints the top project too. `/api/blocks` already carried `projects`.
+
+### Changed
+- **Calibration keeps its weighting scheme unless a challenger fits clearly better.** On a weekly window the candidate schemes' residuals sit within 5–15% of each other and the winner changed on four of seven days on a real account; each scheme measures capacity in its own units, so `capacity`, `remainingWeight` and the burn figures jumped between polls with nothing having changed. The stored scheme is now held until another fits at least 10% better (`limits.pickScheme`). Checked while here: with the jitter fix in, the 5-hour capacity on the reference account is flat at 5.5–5.7 across five weeks of sliding 14-day fits, so the "limit ↑ ×1.4" it showed earlier was that bug, not a plan boost.
+
 ## [1.6.2] — 2026-09-20
 
 ### Added

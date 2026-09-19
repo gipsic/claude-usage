@@ -302,12 +302,14 @@ const COMMANDS = {
     const bs = A.blocks(rt.db, { account, range, limit: Number(flags.limit) || 20 });
     console.log('');
     console.log(bold('  5-hour session blocks') + dim(`  (${range})`));
-    console.log(dim('    start              dur     reqs     tokens      cost   top model'));
+    console.log(dim('    start              dur     reqs     tokens      cost   top model      top project'));
     for (const b of bs) {
       const top = (Object.keys(b.models)[0] || '').replace('claude-', '');
+      const names = Object.keys(b.projects || {});
+      const proj = names.length ? names[0] + (names.length > 1 ? ` +${names.length - 1}` : '') : '';
       const when = new Date(b.start).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
       console.log(`  ${b.active ? grn('●') : ' '} ${when.padEnd(16)} ${dur(b.durationMs).padStart(6)} ` +
-        `${String(b.events).padStart(6)} ${compact(b.tokens).padStart(10)} ${money(b.cost).padStart(9)}   ${dim(top)}`);
+        `${String(b.events).padStart(6)} ${compact(b.tokens).padStart(10)} ${money(b.cost).padStart(9)}   ${dim(top.padEnd(14))} ${dim(proj)}`);
     }
     console.log('');
   },

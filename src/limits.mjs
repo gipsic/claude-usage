@@ -191,6 +191,7 @@ const median = (a) => {
  */
 export function calibrate(db, account = 'default', { now = Date.now(), recentDays = 14 } = {}) {
   const out = {};
+  const previous = loadCalibration(db, account);
   // Plan capacity is not constant: Anthropic runs temporary boosts and changes
   // plans, and one real account stepped ~2.5x on a single day. A fit pooled over
   // a month blends the regimes and describes neither, so the slope is fitted on
@@ -264,13 +265,12 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
     };
 
     if (informative.length) {
-      let best = null;
+      const fits = [];
       for (const scheme of Object.keys(WEIGHTS)) {
         const f = fitRuns(informative, scheme);
-        if (!f) continue;
-        // Near-ties are decided deterministically by candidate order.
-        if (!best || f.residual < best.residual * 0.97) best = { scheme, ...f };
+        if (f) fits.push({ scheme, ...f });
       }
+      const best = pickScheme(fits, previous[win]?.scheme);
       if (best) {
         // Did the plan's capacity step between the prior window and this one?
         const prior = priorRuns.length ? fitRuns(priorRuns, best.scheme) : null;
@@ -324,6 +324,25 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
 
   if (Object.keys(out).length) setMeta(db, `calibration:${account}`, JSON.stringify(out));
   return out;
+}
+
+/**
+ * Choose the weighting scheme for a window from this tick's fits.
+ *
+ * The candidates' residuals are often within 5-15% of each other on a weekly
+ * window (six weeks of one account: the winner changed on four of seven days),
+ * and each scheme measures capacity in its own units, so letting the smallest
+ * residual win every tick made `capacity`, `remainingWeight` and the burn
+ * figures jump between polls without the data having changed. The scheme the
+ * window already uses is kept unless a challenger fits at least 10% better;
+ * with no incumbent, near-ties (3%) go to candidate order, deterministically.
+ */
+export function pickScheme(fits, incumbent = null, { margin = 0.9, tie = 0.97 } = {}) {
+  let best = null;
+  for (const f of fits) if (!best || f.residual < best.residual * tie) best = f;
+  if (!best) return null;
+  const held = incumbent && fits.find((f) => f.scheme === incumbent);
+  return held && best.residual >= held.residual * margin ? held : best;
 }
 
 export function loadCalibration(db, account = 'default') {

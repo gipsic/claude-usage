@@ -185,6 +185,16 @@ test('a newer desktop-cache sample does not lose the reset time the API reported
   assert.equal(L.latestSnapshots(db)['five_hour'].resetsAt, null);
 });
 
+test('pickScheme keeps the incumbent weighting unless a challenger is clearly better', () => {
+  const fits = (a, b, c) => [{ scheme: 'cost', residual: a }, { scheme: 'uncached', residual: b }, { scheme: 'output', residual: c }];
+  assert.equal(L.pickScheme(fits(0.10, 0.09, 0.12), null).scheme, 'uncached', 'no incumbent: smallest residual');
+  assert.equal(L.pickScheme(fits(0.10, 0.098, 0.12), null).scheme, 'cost', 'no incumbent, near-tie: candidate order');
+  assert.equal(L.pickScheme(fits(0.10, 0.092, 0.12), 'cost').scheme, 'cost', '8% better is not enough to switch');
+  assert.equal(L.pickScheme(fits(0.10, 0.085, 0.12), 'cost').scheme, 'uncached', '15% better switches');
+  assert.equal(L.pickScheme(fits(0.10, 0.09, 0.12), 'tier').scheme, 'uncached', 'an incumbent with no fit this tick does not hold');
+  assert.equal(L.pickScheme([], 'cost'), null);
+});
+
 test('limitState labels sources honestly', () => {
   const db = DB.open();
   const st = L.limitState(db, { account: 'default' });

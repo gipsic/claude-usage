@@ -69,6 +69,7 @@ try {
     #account { filter: blur(5px); }
     #accounts-panel { display: none !important; }
     #blocks-tbl tbody tr:nth-child(n+9) { display: none; }
+    #blocks-tbl .project { filter: blur(4px); }          /* no project names in the README */
     * { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto !important; }
   \`; document.head.appendChild(st); window.scrollTo(0, 0); return true; })()`);

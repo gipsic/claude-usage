@@ -270,6 +270,11 @@ async function renderBlocks() {
   $('#blocks-tbl tbody').innerHTML = bs.length ? bs.map((b) => {
     const models = Object.keys(b.models).slice(0, 3)
       .map((m) => `<span class="pill">${esc(m.replace('claude-', ''))}</span>`).join('');
+    // Projects by cost within the window; the rest are counted, not listed.
+    const names = Object.keys(b.projects || {});
+    const projects = names.slice(0, 2)
+      .map((p) => `<span class="pill project" title="${esc(p)} · ${fmtMoney(b.projects[p])}">${esc(p)}</span>`).join('') +
+      (names.length > 2 ? `<span class="muted" title="${esc(names.slice(2).join(', '))}"> +${names.length - 2}</span>` : '');
     return `<tr>
       <td>${b.active ? '<span class="live-dot">●</span> ' : ''}${new Date(b.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
       <td class="r">${humanDur(b.durationMs)}</td>
@@ -277,8 +282,9 @@ async function renderBlocks() {
       <td class="r">${fmtCompact(b.tokens)}</td>
       <td class="r">${fmtMoney(b.cost)}</td>
       <td>${models}</td>
+      <td>${projects}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" class="hint">No sessions in range.</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="hint">No sessions in range.</td></tr>';
 }
 
 async function renderBreakdown() {

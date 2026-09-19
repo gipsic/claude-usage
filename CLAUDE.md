@@ -1,7 +1,7 @@
 # claude-usage — engineering handoff
 
 Read this before touching code. It is the state of the project as of 2026-09-20
-(v1.6.2), the decisions that were made deliberately, the traps already
+(v1.6.3), the decisions that were made deliberately, the traps already
 stepped in, and what to build next. The user (Wisit, GIPSIC) reads Thai and
 English; reply in the language they write in, and lead with status.
 
@@ -144,7 +144,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 66 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 67 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
@@ -305,7 +305,12 @@ Not doing: any ingest server / telemetry.
   Resolved 2026-09-20 with six weeks of API history: real resets on top of a
   fixed weekly phase; the phase does not move (see Reset inference above).
 - Calibration across Anthropic's temporary limit boosts ("50% higher through
-  Sep 13") — a regime step; currently handled by fitting on recent segments.
+  Sep 13") — a regime step; handled by fitting on recent segments and flagging
+  a >1.4x shift against the prior 14 days. Checked 2026-09-20: no step visible in
+  five weeks of sliding fits (5-hour capacity flat at 5.5-5.7 `uncached`); the
+  `x1.4` once shown was the resets_at-jitter bug. What *does* move is the
+  winning scheme on the weekly window (residuals 5-15% apart) - hence
+  `pickScheme` hysteresis (hold the incumbent unless 10% better) since 1.6.3.
 - `seven_day` from the desktop cache vs `weekly_all` from the API are the same
   window; the scoped Fable window exists only via the API (since 1.6.0 it is
   estimated from local Fable transcripts while no token is live, never cached).
