@@ -96,12 +96,16 @@ claude-usage doctor       # check every data source
 ## More of it
 
 **Usage history** — every 5-hour window against the limit, with weekly
-utilization drawn from real recorded snapshots (not interpolated).
+utilization drawn from real recorded snapshots (not interpolated). The
+per-model weekly window (Fable) gets its own dashed line, each weekly reset is
+marked where it happened, the corner names the next one, and hovering reads
+out every line's value at that time.
 
 ![Usage history: 5-hour window peaks and weekly utilization over seven days](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-history.png)
 
 **Daily activity and session history** — a year at a glance, then every 5-hour
-window with duration, requests, tokens, cost and the models used.
+window with duration, requests, tokens, cost, the models used and the projects
+it went to.
 
 ![Daily activity heatmap and a table of recent 5-hour sessions](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-activity.png)
 

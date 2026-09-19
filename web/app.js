@@ -206,7 +206,9 @@ async function renderSession(sum) {
     $('#session-hint').textContent = '';
     return;
   }
-  const s = await api('/api/series', { range: '5h', bucket: 5 * 60e3 });
+  // Bound to the window itself: it opened with its first message, which is
+  // rarely five hours ago, and the previous window's tail must not show here.
+  const s = await api('/api/series', { range: '5h', bucket: 5 * 60e3, ...(w.start ? { from: w.start } : {}) });
   stackedChart(host, s.points, {
     series: SERIES, height: 190, mode: 'bar',
     xFmt: (b, full) => new Date(b).toLocaleTimeString([], full
@@ -365,10 +367,12 @@ function renderAlertSettings(cfg) {
   $('#as-quiet-end').value = a.quietHours?.end || '';
   $('#as-unmute').hidden = !muted;
 
-  const label = { five_hour: '5-hour session', seven_day: 'Weekly (all)', 'seven_day_*': 'Weekly per-model' };
+  const fixed = { five_hour: '5-hour session', seven_day: 'Weekly (all)', 'seven_day_*': 'Weekly per-model' };
+  // An explicit per-model entry (seven_day_fable) reads as its window does.
+  const label = (win) => fixed[win] || win.replace(/^seven_day_(.+)$/, (_, t) => `Weekly ${t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`);
   $('#as-thresholds').innerHTML = Object.entries(a.thresholds || {}).map(([win, list]) => `
     <label class="as-field">
-      <span>${esc(label[win] || win)} (%)</span>
+      <span>${esc(label(win))} (%)</span>
       <input type="text" inputmode="numeric" data-window="${esc(win)}" value="${esc((list || []).join(', '))}">
     </label>`).join('');
 }

@@ -6,6 +6,15 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.6] — 2026-09-20
+
+### Fixed
+- **The Current session chart showed the last five hours, not the window.** A 5-hour window opens with its first message, so the chart's left edge could carry the tail of the previous window while its heading said "window opened 08:00 PM". It is now bounded to the window's own start (`/api/series` takes `from`).
+- The alert settings named an explicit per-model threshold by its key (`seven_day_fable`); it now reads *Weekly Fable*, and `/api/summary`'s `windowLabels` covers the scoped windows too.
+
+### Documentation
+- README describes the reset markers, the Fable line, the hover readout and the Projects column.
+
 ## [1.6.5] — 2026-09-20
 
 ### Changed

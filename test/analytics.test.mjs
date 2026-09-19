@@ -15,6 +15,15 @@ test('series is zero-filled with evenly spaced buckets', () => {
   assert.equal(s.points.reduce((n, p) => n + p.events, 0), 15);
 });
 
+test('series can be bounded to an explicit window start', () => {
+  const all = A.series(db, { account: 'default', range: '5h', now: NOW });
+  const first = all.points.find((p) => p.events > 0);
+  assert.ok(first, 'fixture has events inside the last five hours');
+  const bounded = A.series(db, { account: 'default', range: '5h', now: NOW, from: first.bucket + 1 });
+  assert.ok(bounded.points.every((p) => p.bucket > first.bucket), 'nothing before the given start');
+  assert.ok(bounded.points.length < all.points.length);
+});
+
 test('blocks and breakdown agree on totals', () => {
   const bs = A.blocks(db, { account: 'default', range: '7d', now: NOW });
   assert.equal(bs.length, 2, 'two 5-hour windows in the fixture');

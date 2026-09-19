@@ -6,7 +6,7 @@ import { open, setMeta, getMeta } from './db.mjs';
 import { loadConfig, saveConfig, CONFIG_PATH, deepMerge } from './config.mjs';
 import { scan } from './scanner.mjs';
 import { fetchUsage, recordUsage, readToken, MIN_POLL_MS, VERSION } from './oauth.mjs';
-import { limitState, calibrate, loadCalibration, weightScheme, WINDOWS } from './limits.mjs';
+import { limitState, calibrate, loadCalibration, weightScheme, activeWindows } from './limits.mjs';
 import { importDesktopHistory } from './desktop.mjs';
 import { serviceStatus } from './status.mjs';
 import { evaluate, evaluateService } from './alerts.mjs';
@@ -201,7 +201,7 @@ export function createServer(rt) {
           const day = 864e5;
           return json(res, {
             now, account, windows: st,
-            windowLabels: Object.fromEntries(Object.entries(WINDOWS).map(([k, v]) => [k, v.label])),
+            windowLabels: Object.fromEntries(Object.entries(activeWindows(rt.db, account)).map(([k, v]) => [k, v.label])),
             today: A.totals(rt.db, { account, from: startOfLocalDay(now), to: now }),
             last24h: A.totals(rt.db, { account, from: now - day, to: now }),
             last7d: A.totals(rt.db, { account, from: now - 7 * day, to: now }),
@@ -220,6 +220,7 @@ export function createServer(rt) {
         case '/api/series':
           return json(res, A.series(rt.db, { account, range,
             bucket: q.get('bucket') ? Number(q.get('bucket')) : undefined,
+            from: q.get('from') ? Number(q.get('from')) : null,
             model: q.get('model'), project: q.get('project') }));
 
         case '/api/activity':

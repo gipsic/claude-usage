@@ -48,8 +48,10 @@ const num = (r) => {
 };
 
 /** Evenly-spaced time buckets, zero-filled, so charts have no gaps. */
-export function series(db, { account = 'default', range = '24h', bucket, now = Date.now(), model = null, project = null } = {}) {
-  const from = rangeStart(range, now);
+export function series(db, { account = 'default', range = '24h', bucket, now = Date.now(), model = null, project = null, from: fromOpt = null } = {}) {
+  // An explicit `from` bounds the series to a real window (the open 5-hour
+  // window starts when its first message was sent, not five hours ago).
+  const from = fromOpt != null ? Number(fromOpt) : rangeStart(range, now);
   const size = bucket || autoBucket(range);
   const where = ['account = ?', 'ts >= ?', 'ts <= ?'];
   const args = [account, Math.round(from), Math.round(now)];
