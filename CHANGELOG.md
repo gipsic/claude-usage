@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-09-20
+
+### Added
+- **Usage history marks the weekly resets.** A dashed marker with the time (`↻ Sun 08:00`) wherever the weekly line fell to zero, and a note in the corner naming the next one (`weekly resets Sun 08:00 · in 2.1 d`). The instants are the ones Anthropic reported; where only the desktop cache saw the drop the marker sits mid-gap and is drawn fainter. `/api/timeline` carries them as `weeklyResets` and `nextWeeklyReset`.
+
+### Fixed
+- Notifications for a per-model window named its key (`85% of seven_day_fable`) instead of its label (`85% of Weekly Fable`).
+
 ### Changed
 - `bin/shoot-readme.mjs` re-shoots the README images and animation from the running dashboard (headless Chrome over the DevTools protocol, ffmpeg for the GIF). Development tool only; not in the npm package.
 

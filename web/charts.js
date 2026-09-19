@@ -395,6 +395,28 @@ export function sessionHistoryChart(host, data, {
     svg.append(el('circle', { cx: X(last.t), cy: Y(last.u), r: 3.5, class: 'weekly-dot' }));
   }
 
+  // Weekly resets: a marker where the window rolled over, labelled with the
+  // time it happened, and a note on the next one. The schedule is fixed
+  // (Anthropic resets on the same weekday and hour), so seeing where the last
+  // one fell says how far the current window has to run.
+  const resets = (data.weeklyResets || []).filter((r) => r.t >= from && r.t <= to);
+  const clock = (t) => new Date(t).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  for (const r of resets) {
+    const x = X(r.t);
+    svg.append(el('line', { x1: x, x2: x, y1: m.t, y2: m.t + ih, class: `reset-mark ${r.source}` }));
+    const tag = el('text', { x: x + 4, y: m.t + 10, class: 'reset-label' }, [`↻ ${clock(r.t)}`]);
+    if (x > W - m.r - 70) tag.setAttribute('x', x - 4), tag.setAttribute('text-anchor', 'end');
+    svg.append(tag);
+  }
+  const next = data.nextWeeklyReset;
+  if (next && !relativeNote) {
+    const inMs = next.t - to;
+    const dur = inMs < 3600e3 ? `${Math.max(1, Math.round(inMs / 60e3))} min`
+      : inMs < 864e5 ? `${Math.round(inMs / 3600e3)} h` : `${(inMs / 864e5).toFixed(1)} d`;
+    svg.append(el('text', { x: W - m.r, y: 11, 'text-anchor': 'end', class: 'axis reset-next' },
+      [`weekly resets ${clock(next.t)} · in ${dur}${next.source === 'inferred' ? ' · inferred' : ''}`]));
+  }
+
   // Day ticks along the x axis.
   const days = Math.max(1, Math.round(span / 864e5));
   const stepDays = days <= 8 ? 1 : days <= 35 ? 7 : Math.ceil(days / 8);

@@ -57,7 +57,9 @@ export function evaluate(db, state, cfg, { account = 'default', now = Date.now()
 
   for (const [win, s] of Object.entries(state)) {
     if (s.utilization == null || !s.resetsAt) continue;
-    const label = WINDOWS[win]?.label || win;
+    // limitState names every window, scoped ones included ("Weekly Fable");
+    // WINDOWS only knows the fixed two, so a scoped alert used to read `seven_day_fable`.
+    const label = s.label || WINDOWS[win]?.label || win;
     const inst = `${account}:${win}:${s.resetsAt}`;
 
     // Per-model weekly windows are named by what the plan reports

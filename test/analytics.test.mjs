@@ -6,6 +6,7 @@ const { db: DB, scanner, analytics: A, limits: L } = await load();
 const db = DB.open();
 scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default', full: true });
 const NOW = Date.parse('2026-09-01T12:00:00Z');
+const HOUR = 3600e3, DAY = 24 * HOUR;
 
 test('series is zero-filled with evenly spaced buckets', () => {
   const s = A.series(db, { account: 'default', range: '24h', now: NOW });
@@ -42,6 +43,27 @@ test('timeline prefers recorded percentages when snapshots cover a window', () =
   const rec = t.blocks.find((b) => b.source === 'recorded');
   assert.equal(rec.utilization, 44, 'peak of the recorded ramp');
   assert.ok(rec.curve.every((c, i, a) => i === 0 || c.u >= a[i - 1].u), 'ramp is monotonic');
+});
+
+test('timeline marks each weekly reset where the series fell, and names the next one', () => {
+  db.exec("DELETE FROM limit_snapshots; DELETE FROM limit_events");
+  const ins = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','seven_day',?,?)");
+  const reset = Date.parse('2026-08-30T01:00:00Z');                 // Sunday 08:00 Bangkok
+  const t0 = reset - 6 * HOUR;
+  for (let i = 0; i < 12; i++) ins.run(t0 + i * 30 * 60e3, 80 + i, reset);   // climbing towards the reset
+  ins.run(reset + 10 * 60e3, 1, reset + 7 * DAY);                     // fresh window, reported next reset
+  ins.run(reset + 40 * 60e3, 2, reset + 7 * DAY);
+  const t = A.timeline(db, { account: 'default', range: '7d', now: NOW, capacity: {} });
+  assert.equal(t.weeklyResets.length, 1);
+  assert.equal(t.weeklyResets[0].t, reset, 'the reported reset instant, not the gap midpoint');
+  assert.equal(t.weeklyResets[0].source, 'api');
+  assert.equal(t.nextWeeklyReset.t, reset + 7 * DAY);
+  assert.equal(t.nextWeeklyReset.source, 'api');
+  // Without a reported time the fall sits at the midpoint of the gap it happened in.
+  db.exec("UPDATE limit_snapshots SET resets_at = NULL");
+  const u = A.timeline(db, { account: 'default', range: '7d', now: NOW, capacity: {} });
+  assert.equal(u.weeklyResets[0].source, 'observed');
+  assert.equal(u.weeklyResets[0].t, (t0 + 11 * 30 * 60e3 + reset + 10 * 60e3) / 2);
 });
 
 test('a reset inside a local hour does not paint the next window as already full', () => {

@@ -1,4 +1,4 @@
-import { sessionBlocks, recordedWindows, FIVE_H, HOUR } from './limits.mjs';
+import { sessionBlocks, recordedWindows, latestSnapshots, anchoredReset, FIVE_H, HOUR, SEVEN_D } from './limits.mjs';
 import { weightOf, DEFAULT_WEIGHT } from './pricing.mjs';
 
 const DAY = 24 * HOUR;
@@ -421,8 +421,32 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
     for (const w of weekly) w.u = (w.weight / maxW) * 100;
   }
 
+  // --- weekly resets ------------------------------------------------------
+  // Where the recorded weekly series fell, the window reset. The instant is the
+  // reset time Anthropic reported for the sample before the fall when it lies
+  // inside the gap; otherwise the gap's midpoint (the desktop cache carries no
+  // reset time). The next reset comes from the newest snapshot, or from the
+  // observed weekly schedule when nothing live names it.
+  const weeklyResets = [];
+  for (let i = 1; i < weekSnaps.length; i++) {
+    const prev = weekSnaps[i - 1], cur = weekSnaps[i];
+    if (cur.u >= prev.u - 2) continue;
+    const exact = prev.resetsAt != null && prev.resetsAt > prev.t && prev.resetsAt <= cur.t;
+    weeklyResets.push({ t: exact ? prev.resetsAt : (prev.t + cur.t) / 2, source: exact ? 'api' : 'observed', from: prev.u });
+  }
+  let nextWeeklyReset = null;
+  const snap = latestSnapshots(db, account).seven_day;
+  if (snap?.resetsAt != null) {
+    let t = snap.resetsAt;
+    while (t <= now) t += SEVEN_D;
+    nextWeeklyReset = { t, source: 'api' };
+  } else {
+    const t = anchoredReset(db, 'seven_day', { account, now });
+    if (t != null) nextWeeklyReset = { t, source: 'inferred' };
+  }
+
   return {
-    from, to: now, range, blocks, weekly,
+    from, to: now, range, blocks, weekly, weeklyResets, nextWeeklyReset,
     relative, relativeWeekly, weeklySource,
     recordedBlocks, totalBlocks: blocks.length,
     capacity: { block: blockCap, week: capacity.seven_day?.capacity || null },

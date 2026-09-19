@@ -12,7 +12,7 @@ test('a scoped per-model window (Fable) gets threshold alerts from the seven_day
   const cfg = { alerts: { ...config.DEFAULTS.alerts, resetReminderMinutes: [], burnWarning: false } };
   const fired = alerts.evaluate(db, { seven_day_fable: win({ label: 'Weekly Fable' }) }, cfg, { send: false });
   assert.deepEqual(fired.map((f) => f.kind), ['threshold']);
-  assert.match(fired[0].detail, /Weekly Fable|85%/);
+  assert.match(fired[0].detail, /85% of Weekly Fable/, 'the notification names the window, not its key');
   assert.equal(alerts.evaluate(db, { seven_day_fable: win() }, cfg, { send: false }).length, 0, 'fires once per window instance');
 });
 
