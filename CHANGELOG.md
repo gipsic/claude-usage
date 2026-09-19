@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.5] — 2026-09-20
+
+### Changed
+- **The history chart's payload is a fraction of its former size.** `/api/timeline` returned every 3-minute sample of every weekly line and every 5-hour ramp - 180 KB for a week, 730 KB for 90 days - though a step line only changes shape where the value changes. Flat runs now keep their first and last sample plus one every 30 minutes (so a real gap in recording still shows as a gap, not a plateau) and every point where the reported reset time changes. The drawing is identical; the week is now a few tens of kilobytes.
+
 ## [1.6.4] — 2026-09-20
 
 ### Added

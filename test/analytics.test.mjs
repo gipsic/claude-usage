@@ -79,6 +79,27 @@ test('timeline carries each per-model weekly series for the chart', () => {
   assert.equal(t.weekly.length, 5, 'the account-wide series is untouched');
 });
 
+test('thin keeps what a step line needs and nothing else', () => {
+  const MIN = 60e3;
+  const s = (m, u, r = null) => ({ t: m * MIN, u, resetsAt: r });
+  // 3-minute samples: flat at 10 for 90 min, a rise, flat at 12, a reset-time change.
+  const series = [];
+  for (let m = 0; m <= 90; m += 3) series.push(s(m, 10));
+  // sub-second jitter on resets_at (as the endpoint does) must not count as a change
+  series.push(s(93, 11), s(96, 12, 5e6), s(99, 12, 5e6 + 400), s(102, 12, 5e6 + 900), s(105, 12, 9e6), s(108, 12, 9e6 + 300));
+  const out = A.thin(series);
+  assert.equal(out[0].t, 0, 'first sample kept');
+  assert.ok(out.some((x) => x.t === 90 * MIN), 'last of the flat run kept');
+  assert.ok(out.some((x) => x.t === 30 * MIN) && out.some((x) => x.t === 60 * MIN), 'one every 30 min inside the run');
+  assert.ok(!out.some((x) => x.t === 3 * MIN), 'interior repeats dropped');
+  for (const t of [93, 96, 102, 105, 108]) assert.ok(out.some((x) => x.t === t * MIN), `edge at ${t} min kept`);
+  assert.ok(!out.some((x) => x.t === 99 * MIN), 'jittered resets_at inside a flat run is not an edge');
+  assert.equal(out[out.length - 1].t, 108 * MIN, 'last sample kept');
+  assert.ok(out.length < series.length / 2, `thinned ${series.length} -> ${out.length}`);
+  assert.deepEqual(A.thin([]), []);
+  assert.deepEqual(A.thin([s(1, 5)]), [s(1, 5)]);
+});
+
 test('a reset inside a local hour does not paint the next window as already full', () => {
   // The shape seen on a real dashboard: a window hits 100% and resets at :10,
   // not on the hour; the samples straddling the reset used to share one guessed

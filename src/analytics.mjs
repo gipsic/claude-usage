@@ -128,6 +128,32 @@ export function blocks(db, { account = 'default', range = '30d', now = Date.now(
 }
 
 /** Recorded utilization samples for one window, oldest first. */
+/**
+ * Drop the samples a step chart cannot show. Utilization is an integer that
+ * changes rarely against a 3-minute poll, so most consecutive samples repeat
+ * the previous value; only the first and last of each flat run shape the line.
+ * One sample is still kept every `keepEvery` inside a run, so a real gap in
+ * recording (no token for hours) stays visible as a gap rather than a plateau.
+ * Points where the reported reset time changes are kept too: they mark the
+ * window boundary for the chart's reset markers.
+ */
+export function thin(samples, { keepEvery = 30 * 60e3 } = {}) {
+  const out = [];
+  // The endpoint's resets_at jitters by up to a second between polls; only a
+  // change of more than a minute is a different window.
+  const resetDiffers = (a, b) => (a == null) !== (b == null) || (a != null && Math.abs(a - b) > 60e3);
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i], prev = samples[i - 1], next = samples[i + 1];
+    const last = out[out.length - 1];
+    const keep = !prev || !next
+      || s.u !== prev.u || s.u !== next.u
+      || resetDiffers(s.resetsAt, prev.resetsAt) || resetDiffers(s.resetsAt, next.resetsAt)
+      || !last || s.t - last.t >= keepEvery;
+    if (keep) out.push(s);
+  }
+  return out;
+}
+
 function limitSamples(db, account, win, from, now) {
   return db.prepare(
     `SELECT ts, utilization AS u, resets_at AS r FROM limit_snapshots
@@ -382,7 +408,7 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
 
   // --- weekly line: the recorded series, verbatim ------------------------
   const weekSnaps = snapshots('seven_day');
-  let weekly = weekSnaps;
+  let weekly = thin(weekSnaps);
   let weeklySource = 'recorded';
   if (!weekly.length) {
     // No snapshots in range: fall back to a trailing 7-day total, which is only
@@ -429,7 +455,8 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
     // One real window: utilization only rises inside it, so the running peak is
     // the true ramp here, not a mask over a reset.
     let peak = 0;
-    const curve = w.samples.map((s) => ({ t: s.t, u: (peak = Math.max(peak, s.u)) }));
+    const curve = thin(w.samples.map((s) => ({ t: s.t, u: (peak = Math.max(peak, s.u)), resetsAt: null })))
+      .map(({ t, u }) => ({ t, u }));
     return { ...windowFacts(w, mine, now), utilization: peak, curve, source: 'recorded' };
   });
   recordedBlocks = recordedOut.length;
@@ -496,7 +523,7 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
   // desktop cache never carried these - so a stretch with no token shows a gap.
   const scopedWeekly = Object.entries(activeWindows(db, account))
     .filter(([, d]) => d.scoped && d.span === SEVEN_D)
-    .map(([win, d]) => ({ window: win, label: d.label, samples: snapshots(win) }))
+    .map(([win, d]) => ({ window: win, label: d.label, samples: thin(snapshots(win)) }))
     .filter((s) => s.samples.length > 1);
 
   return {
