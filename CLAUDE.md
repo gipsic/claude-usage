@@ -32,7 +32,8 @@ src/weblogin.mjs      browser sign-in by launching `claude auth login` in Termin
 src/alerts.mjs        thresholds / reset reminders / burn warnings; mute + quiet hours
 src/pricing.mjs       per-model prices + candidate limit-weighting schemes (WEIGHTS)
 web/                  dashboard (vanilla JS, custom SVG charts, no CDN)
-bin/                  install-daemon.sh, make-app.sh, menu-bar plugin, build-binary.sh
+bin/                  install-daemon.sh, make-app.sh, menu-bar plugin, build-binary.sh,
+                      shoot-readme.mjs (re-shoot README images; dev only)
 test/                 node:test, hermetic (see Testing)
 ```
 

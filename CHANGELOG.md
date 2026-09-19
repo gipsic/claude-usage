@@ -6,6 +6,9 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- `bin/shoot-readme.mjs` re-shoots the README images and animation from the running dashboard (headless Chrome over the DevTools protocol, ffmpeg for the GIF). Development tool only; not in the npm package.
+
 ## [1.6.0] — 2026-09-20
 
 ### Added
