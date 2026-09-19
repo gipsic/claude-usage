@@ -95,11 +95,43 @@ export function readToken({ configDir, accountId, fresh = false } = {}) {
 let cachedService = null;
 let cachedServiceList = { at: 0, names: [] };
 
+// Every `security` call here is synchronous, and a pending authorization
+// dialog (or a locked screen that cannot show one) blocks it until someone
+// answers. Without a timeout that froze the whole tracker - the event loop,
+// the dashboard, every poll - for as long as the Mac sat unattended. So each
+// call gets a short timeout, and one timeout puts the keychain on a backoff so
+// the next poll does not re-open the same dialog; the desktop-app token and
+// the credential file still work in the meantime. `keychainState()` says why.
+const KEYCHAIN_TIMEOUT_MS = Number(process.env.CLAUDE_USAGE_KEYCHAIN_TIMEOUT_MS) || 10_000;
+const KEYCHAIN_BACKOFF_MS = 10 * 60_000;
+let keychainBackoffUntil = 0;
+let keychainErr = null;
+export function keychainState() {
+  return { ok: !keychainErr, error: keychainErr, backoffUntil: keychainBackoffUntil || null };
+}
+/** Test seam: forget any backoff. */
+export function resetKeychain() { keychainBackoffUntil = 0; keychainErr = null; cachedService = null; cachedServiceList = { at: 0, names: [] }; }
+
+function security(args, extra = {}) {
+  if (Date.now() < keychainBackoffUntil) { const e = new Error('keychain-backoff'); e.reason = 'keychain-timeout'; throw e; }
+  try {
+    const out = execFileSync('security', args,
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: KEYCHAIN_TIMEOUT_MS, ...extra });
+    keychainErr = null;
+    return out;
+  } catch (e) {
+    if (e.signal || e.code === 'ETIMEDOUT') {
+      keychainBackoffUntil = Date.now() + KEYCHAIN_BACKOFF_MS;
+      keychainErr = 'keychain-timeout';
+      e.reason = 'keychain-timeout';
+    }
+    throw e;
+  }
+}
+
 function readService(service) {
   try {
-    const raw = execFileSync('security',
-      ['find-generic-password', '-s', service, '-w'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const raw = security(['find-generic-password', '-s', service, '-w']);
     const j = JSON.parse(raw);
     const o = j?.claudeAiOauth;
     if (!o?.accessToken) return null;
@@ -112,9 +144,9 @@ function readService(service) {
 function listCredentialServices({ maxAgeMs = 60_000 } = {}) {
   if (Date.now() - cachedServiceList.at < maxAgeMs) return cachedServiceList.names;
   try {
-    const dump = execFileSync('security',
+    const dump = security(
       ['dump-keychain', path.join(os.homedir(), 'Library', 'Keychains', 'login.keychain-db')],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 << 20 });
+      { maxBuffer: 64 << 20 });
     const names = new Set(['Claude Code-credentials']);
     for (const m of dump.matchAll(/"svce"<blob>="(Claude Code-credentials[^"]*)"/g)) names.add(m[1]);
     cachedServiceList = { at: Date.now(), names: [...names] };

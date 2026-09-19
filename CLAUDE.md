@@ -1,7 +1,7 @@
 # claude-usage — engineering handoff
 
 Read this before touching code. It is the state of the project as of 2026-09-20
-(v1.6.7), the decisions that were made deliberately, the traps already
+(v1.6.8), the decisions that were made deliberately, the traps already
 stepped in, and what to build next. The user (Wisit, GIPSIC) reads Thai and
 English; reply in the language they write in, and lead with status.
 
@@ -135,6 +135,15 @@ live do API-only windows go stale.
 - Pointing `CLAUDE_CONFIG_DIR` at `~/.claude` is **not** a no-op: Claude Code then
   treats it as a separate profile and stores the login elsewhere. Only export it
   for genuinely separate profiles.
+- **Every `security` call must have a timeout.** Token discovery shells out to
+  `security dump-keychain` / `find-generic-password` synchronously; a pending
+  Keychain authorization dialog (or a locked screen that cannot show one) blocks
+  the call, and with it the event loop, the dashboard, every poll and `restart`.
+  Two consecutive tracker processes sat at 0% CPU in `dump-keychain` on
+  2026-09-20 until 1.6.8 added a 10 s timeout + 10 min backoff (`oauth.security`,
+  `keychainState()`, doctor's `login keychain` line). To get a JS stack out of a
+  frozen tracker: `kill -USR1 <pid>`, wait ~6 s, then `Debugger.pause` over the
+  inspector websocket on 9229 - `sample(1)` shows nothing useful for node.
 - `script(1)` needs a tty on its own stdin — you cannot pty-wrap the CLI from the
   daemon; hence the Terminal `.command` flow with a `.started` marker (`open`
   returns 0 from launchd even when Terminal never ran the file).
@@ -144,7 +153,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 72 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 73 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or

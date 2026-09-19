@@ -5,7 +5,7 @@ import url from 'node:url';
 import { createRuntime, createServer, startLoops, scanAll, pollLimits, stateFor, menubarLine } from './server.mjs';
 import { scan } from './scanner.mjs';
 import { calibrate, loadCalibration, WINDOWS } from './limits.mjs';
-import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState, VERSION } from './oauth.mjs';
+import { readToken, fetchUsage, accountInfo, clientVersion, desktopToken, desktopTokenState, keychainState, VERSION } from './oauth.mjs';
 import { serviceStatus } from './status.mjs';
 import { CONFIG_PATH, ensureConfig, saveConfig, deepMerge } from './config.mjs';
 import { DATA_DIR } from './db.mjs';
@@ -427,6 +427,8 @@ const COMMANDS = {
       // The desktop app's own token is the fallback for an idle machine, where
       // the CLI's hour-long token has lapsed. Name the reason when it is unusable.
       desktopToken({ accountUuid: info?.accountUuid, orgUuid: info?.organizationUuid });
+      const kc = keychainState();
+      if (!kc.ok) console.log(`    login keychain      ${yel(kc.error)}${dim(`  (a security call timed out - a Keychain dialog is waiting, or the screen is locked; not retried until ${new Date(kc.backoffUntil).toLocaleTimeString()})`)}`);
       const app = desktopTokenState();
       console.log(`    desktop app token   ${app.ok ? grn('readable') : yel(app.error)}${
         app.error === 'keychain-timeout' ? dim('  (a Keychain dialog is waiting - click Always Allow)') : ''}`);

@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.8] — 2026-09-20
+
+### Fixed
+- **The tracker froze when a Keychain authorization dialog could not be answered.** Token discovery reads the login keychain with the `security` tool on every poll and on some dashboard requests; those calls had no timeout, so when the dialog was pending - or the screen was locked so it could not be shown - the synchronous call blocked the event loop and the dashboard, every poll and `claude-usage restart` all stopped answering until someone unlocked the Mac. (Seen on the reference machine: two consecutive processes hung in `security dump-keychain` with 0% CPU.) Keychain calls now time out after 10 s, one timeout backs the keychain off for 10 minutes, the desktop-app token and credential file carry on, and `doctor` reports the state (`login keychain keychain-timeout`).
+
 ## [1.6.7] — 2026-09-20
 
 ### Added
