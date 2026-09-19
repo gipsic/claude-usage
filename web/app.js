@@ -312,6 +312,19 @@ async function renderInsights() {
     stat('Busiest hour', `${String(i.busiestHour.h).padStart(2, '0')}:00`, fmtMoney(i.busiestHour.cost)),
     stat('Busiest day', DOW[i.busiestDow.d], fmtMoney(i.busiestDow.cost)),
     stat('Cache hit share', `${(i.cacheHitRate * 100).toFixed(0)}<small>%</small>`, 'of all input tokens'),
+    // One pair of cards per per-model window the plan reports (Weekly Fable):
+    // how much of the spend went there, and what a dollar on it costs in limit.
+    ...(i.scoped || []).flatMap((s) => {
+      const fam = s.label.replace(/^Weekly /, '');      // 'Fable', as the window card names it
+      const pct100 = (r) => r == null ? '—' : `${(r * 100).toFixed(r * 100 < 10 ? 1 : 0)}%`;
+      return [
+        stat(`${esc(fam)} share`, `${(s.costShare * 100).toFixed(0)}<small>%</small>`,
+          `${fmtMoney(s.cost)} · ${(s.eventShare * 100).toFixed(0)}% of requests`),
+        stat(`${esc(s.label)} per $100`, pct100(s.pctPerDollar),
+          s.sharedPctPerDollar == null ? 'of its own window'
+            : `of its own window · ${pct100(s.sharedPctPerDollar)} of Weekly (all)`),
+      ];
+    }),
   ].join('');
 
   hourStrip($('#hour-strip'), i.hourOfDay, { metric: 'cost' });

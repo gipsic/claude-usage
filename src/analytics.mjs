@@ -1,5 +1,5 @@
-import { sessionBlocks, recordedWindows, latestSnapshots, anchoredReset, FIVE_H, HOUR, SEVEN_D } from './limits.mjs';
-import { weightOf, DEFAULT_WEIGHT } from './pricing.mjs';
+import { sessionBlocks, recordedWindows, latestSnapshots, anchoredReset, activeWindows, loadCalibration, FIVE_H, HOUR, SEVEN_D } from './limits.mjs';
+import { weightOf, familyOf, DEFAULT_WEIGHT } from './pricing.mjs';
 
 const DAY = 24 * HOUR;
 export const RANGES = {
@@ -257,7 +257,53 @@ export function insights(db, { account = 'default', range = '30d', now = Date.no
     busiestHour: hourOfDay.reduce((a, b) => (b.cost > a.cost ? b : a), hourOfDay[0]),
     busiestDow: dayOfWeek.reduce((a, b) => (b.cost > a.cost ? b : a), dayOfWeek[0]),
     cacheHitRate: cacheRate(db, account, from),
+    scoped: scopedInsights(db, account, from),
   };
+}
+
+/**
+ * What a per-model weekly window (Weekly Fable) means for spending decisions:
+ * how much of the range's spend and requests went to that family, and how many
+ * points of *which* window one dollar on it buys.
+ *
+ * A Fable request counts against both its own window and the account-wide one,
+ * so both rates are given. Capacities come from the calibration in whatever
+ * weighting scheme each window settled on; the rate is converted to dollars
+ * through the family's own mix in the range (weight per dollar), so it is an
+ * observed figure for these transcripts, not a published price.
+ */
+function scopedInsights(db, account, from) {
+  const defs = activeWindows(db, account);
+  const scoped = Object.entries(defs).filter(([, d]) => d.scoped && d.families);
+  if (!scoped.length) return [];
+  const cal = loadCalibration(db, account);
+  const evs = db.prepare(
+    `SELECT model, speed, cost, input, output, cache_read, cache_creation
+       FROM events WHERE account = ? AND ts >= ?`
+  ).all(account, Math.round(from)).map(num);
+  const all = evs.reduce((a, e) => ({ cost: a.cost + e.cost, events: a.events + 1 }), { cost: 0, events: 0 });
+  const rate = (win, mine) => {
+    const cap = cal[win]?.capacity;
+    if (!cap || !mine.length) return null;
+    const scheme = cal[win].scheme || DEFAULT_WEIGHT;
+    let cost = 0, weight = 0;
+    for (const e of mine) { cost += e.cost; weight += weightOf(e, scheme); }
+    return cost > 0 ? (100 / cap) * (weight / cost) : null;     // window points per dollar
+  };
+  return scoped.map(([win, d]) => {
+    const fams = new Set(d.families);
+    const mine = evs.filter((e) => fams.has(familyOf(e.model)));
+    const cost = mine.reduce((n, e) => n + e.cost, 0);
+    const tokens = mine.reduce((n, e) => n + e.input + e.output + e.cache_read + e.cache_creation, 0);
+    return {
+      window: win, label: d.label, families: d.families,
+      events: mine.length, cost, tokens,
+      costShare: all.cost > 0 ? cost / all.cost : 0,
+      eventShare: all.events > 0 ? mine.length / all.events : 0,
+      pctPerDollar: rate(win, mine),                    // of its own window
+      sharedPctPerDollar: rate('seven_day', mine),      // of the account-wide weekly window
+    };
+  });
 }
 
 function cacheRate(db, account, from) {

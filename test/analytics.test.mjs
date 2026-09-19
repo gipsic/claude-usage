@@ -2,7 +2,7 @@ import { test } from 'node:test'; import assert from 'node:assert/strict';
 import { tempHome, load, FIXTURE_CONFIG_DIR } from './helpers.mjs';
 
 tempHome();
-const { db: DB, scanner, analytics: A, limits: L } = await load();
+const { db: DB, scanner, analytics: A, limits: L, pricing: P } = await load();
 const db = DB.open();
 scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default', full: true });
 const NOW = Date.parse('2026-09-01T12:00:00Z');
@@ -127,6 +127,34 @@ test('Session history rows are the windows the chart draws, and lose nothing', (
   const byTime = [...rows].sort((a, b) => a.start - b.start);
   assert.ok(byTime.every((r, i) => i === 0 || r.start >= byTime[i - 1].end), 'rows never overlap');
   assert.ok(rows.every((r, i) => i === 0 || r.start <= rows[i - 1].start), 'newest first');
+});
+
+test('insights explain a per-model weekly window in dollars', () => {
+  db.exec("DELETE FROM limit_snapshots; DELETE FROM meta; DELETE FROM events");
+  const ins = db.prepare(`INSERT INTO events(key,ts,account,model,project,input,output,cache_read,cache_creation,cost,weight)
+    VALUES(?,?,'default',?,'p',1000,1000,0,0,?,0)`);
+  // cost as the scanner would store it, so the 'cost' scheme's weight equals it.
+  const priced = (model) => P.costOf({ model, input: 1000, output: 1000, cache_read: 0, cache_creation: 0 });
+  const wf = priced('claude-fable-5-1'), wo = priced('claude-opus-5');
+  for (let i = 0; i < 10; i++) { ins.run(`f${i}`, NOW - i * HOUR, 'claude-fable-5-1', wf); ins.run(`o${i}`, NOW - i * HOUR, 'claude-opus-5', wo); }
+  // No scoped window reported: nothing to explain.
+  assert.deepEqual(A.insights(db, { account: 'default', range: '30d', now: NOW }).scoped, []);
+  db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','seven_day_fable',40,NULL)").run(NOW);
+  // Capacities in the 'cost' scheme: $50 fills the Fable window, $400 the shared one.
+  db.prepare("INSERT INTO meta(k,v) VALUES('calibration:default',?)").run(JSON.stringify({
+    seven_day_fable: { capacity: 50, scheme: 'cost' }, seven_day: { capacity: 400, scheme: 'cost' } }));
+  const [s] = A.insights(db, { account: 'default', range: '30d', now: NOW }).scoped;
+  assert.equal(s.window, 'seven_day_fable');
+  assert.deepEqual(s.families, ['fable']);
+  assert.equal(s.events, 10);
+  assert.ok(Math.abs(s.cost - 10 * wf) < 1e-9);
+  assert.ok(Math.abs(s.costShare - (10 * wf) / (10 * wf + 10 * wo)) < 1e-9, "Fable's share of the spend");
+  assert.equal(s.eventShare, 0.5);
+  assert.ok(Math.abs(s.pctPerDollar - 2) < 1e-9, '$1 = 2% of a $50 window');
+  assert.ok(Math.abs(s.sharedPctPerDollar - 0.25) < 1e-9, '$1 = 0.25% of the $400 shared window');
+  // Put the fixture transcripts back for the tests that follow.
+  db.exec("DELETE FROM events; DELETE FROM meta; DELETE FROM limit_snapshots; DELETE FROM files");
+  scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default', full: true });
 });
 
 test('insights and csv produce sane output', () => {

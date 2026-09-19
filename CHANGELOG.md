@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.2] — 2026-09-20
+
+### Added
+- **Insights explain the per-model weekly window.** When the plan reports one (Weekly Fable), two cards appear: that family's share of the range's spend and requests, and what $100 on it costs in limit — of its own window and of the shared weekly one, since a Fable request counts against both. The rates come from the calibrated capacities converted through the family's own token mix, so they are observed figures for these transcripts. `/api/insights` carries them as `scoped`.
+
 ## [1.6.1] — 2026-09-20
 
 ### Added

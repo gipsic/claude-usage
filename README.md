@@ -105,7 +105,8 @@ window with duration, requests, tokens, cost and the models used.
 
 ![Daily activity heatmap and a table of recent 5-hour sessions](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-activity.png)
 
-**Insights** — averages, peaks, cache hit share, the hours and days you actually
+**Insights** — averages, peaks, cache hit share, what $100 on a per-model
+window (Fable) costs in limit, the hours and days you actually
 work.
 
 ![Insights: averages, peak day and window, busiest hour, spend by day of week](https://raw.githubusercontent.com/gipsic/claude-usage/main/docs/images/dashboard-insights.png)
