@@ -76,8 +76,13 @@ test('a scoped weekly window reported by Anthropic surfaces as its own window', 
   const w = r.body.windows.seven_day_fable;
   assert.ok(w, 'scoped window present');
   assert.equal(w.label, 'Weekly Fable');
-  assert.equal(w.apiOnly, true);
+  // "Fable" is a family we price, so the window gets a local proxy: only Fable
+  // transcripts count towards it, and it can be calibrated like the others.
+  assert.equal(w.apiOnly, false);
+  assert.equal(w.scoped, true);
+  assert.deepEqual(w.families, ['fable']);
   assert.equal(w.utilization, 6);
+  assert.equal(w.local.events, 0, 'fixtures hold no Fable requests');
   // The dashboard must render whatever the API sends - no hardcoded window list.
   const app = fs.readFileSync(new URL('../web/app.js', import.meta.url), 'utf8');
   assert.ok(!/['"]seven_day_opus['"]/.test(app), 'web/app.js hardcodes legacy window keys');

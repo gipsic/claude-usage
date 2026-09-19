@@ -107,9 +107,12 @@ function limitCard(s) {
   if (s.exhaustAt) meta.push(`<b class="danger">empty ~${soonAt(s.exhaustAt)}</b>`);
   else if (s.projectedUtilization != null && !s.rolling) meta.push(`${Math.round(s.projectedUtilization)}% projected`);
   if (s.apiOnly) meta.push('<span class="muted" title="Anthropic reports this scope directly; transcripts carry no per-scope breakdown.">reported by Anthropic</span>');
-  else meta.push(known
+  else meta.push((known
     ? `${fmtMoney(s.local.cost)} · ${fmtCompact(s.local.tokens)} tok`
-    : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`);
+    : `${fmtCompact(s.local.tokens)} tok · ${fmtCompact(s.local.events)} req`) +
+    (s.scoped && s.families?.length
+      ? ` <span class="muted" title="Only ${esc(s.families.join(', '))} requests in your transcripts count towards this window; it is calibrated and estimated on those alone.">${esc(s.families.join(', '))} only</span>`
+      : ''));
   if (s.snapshotAt) {
     const age = Math.round((Date.now() - s.snapshotAt) / 1000);
     meta.push(`<span class="muted" title="When Anthropic's number was last fetched. Polled every 3 minutes; Refresh polls now.">as of ${age < 90 ? age + 's' : Math.round(age / 60) + 'm'} ago</span>`);

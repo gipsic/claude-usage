@@ -1,4 +1,4 @@
-import { familyOf, weightOf, WEIGHTS, DEFAULT_WEIGHT } from './pricing.mjs';
+import { familyOf, weightOf, WEIGHTS, DEFAULT_WEIGHT, FAMILIES } from './pricing.mjs';
 import { labelFor } from './oauth.mjs';
 import { getMeta, setMeta } from './db.mjs';
 
@@ -100,8 +100,13 @@ export function recordedWindows(samples, { span = FIVE_H } = {}) {
 
 /**
  * Every window to report: the known ones, plus any scoped window Anthropic has
- * actually sent us (a per-model weekly limit, say). Scoped windows have no local
- * family mapping, so they are reported straight from the API without estimation.
+ * actually sent us (a per-model weekly limit, say).
+ *
+ * A scoped window named after a model family we price ("Fable" ->
+ * `seven_day_fable`) gets that family as its local proxy: only transcripts of
+ * that family count towards it, so it can be calibrated and estimated like the
+ * account-wide windows. A scope we cannot map to transcripts (a surface, an
+ * unknown model) stays `apiOnly` and is reported straight from the API.
  */
 export function activeWindows(db, account = 'default') {
   const out = { ...WINDOWS };
@@ -112,11 +117,14 @@ export function activeWindows(db, account = 'default') {
   } catch { /* table may not exist yet */ }
   for (const r of rows) {
     if (out[r.window]) continue;
+    const tag = /^seven_day_(.+)$/.exec(r.window)?.[1] ?? null;
+    const family = tag && FAMILIES.has(tag) ? tag : null;
     out[r.window] = {
       label: labelFor(r.window),
       span: r.window.startsWith('seven_day') ? SEVEN_D : FIVE_H,
-      families: null,
-      apiOnly: true,          // no local proxy exists for a scoped window
+      families: family ? [family] : null,
+      apiOnly: !family,       // no local proxy exists for an unmapped scope
+      scoped: true,
     };
   }
   return out;
@@ -191,8 +199,10 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
   const recentFrom = now - recentDays * 24 * HOUR;
   const priorFrom = now - 2 * recentDays * 24 * HOUR;
 
-  for (const win of Object.keys(WINDOWS)) {
-    const span = WINDOWS[win].span;
+  const defs = activeWindows(db, account);
+  for (const [win, def] of Object.entries(defs)) {
+    if (def.apiOnly) continue;          // nothing local to fit against
+    const span = def.span;
     const snaps = db.prepare(
       `SELECT ts, utilization, resets_at FROM limit_snapshots
         WHERE account = ? AND window = ? AND utilization IS NOT NULL
@@ -221,7 +231,10 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
     let run = [snaps[0]];
     for (let i = 1; i < snaps.length; i++) {
       const a = snaps[i - 1], b = snaps[i];
-      const sameWindow = !(a.resetsAt != null && b.resetsAt != null && a.resetsAt !== b.resetsAt);
+      // The endpoint's resets_at jitters by up to a second between polls (and
+      // drifts by up to an hour inside one 5-hour window), so equality would cut
+      // nearly every run to a single sample. Distinct windows sit >= 88 min apart.
+      const sameWindow = !(a.resetsAt != null && b.resetsAt != null && Math.abs(a.resetsAt - b.resetsAt) > HOUR);
       if (b.ts - a.ts <= MAX_GAP && b.u >= a.u && sameWindow) run.push(b);
       else { if (run.length >= 3) runs.push(run); run = [b]; }
     }
@@ -237,7 +250,7 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
       for (const r of rs) {
         let x = 0;
         for (let i = 1; i < r.length; i++) {
-          x += windowUsage(db, win, r[i - 1].ts, r[i].ts, account, scheme).weight;
+          x += windowUsage(db, win, r[i - 1].ts, r[i].ts, account, scheme, defs).weight;
           const y = r[i].u - r[0].u;
           pts.push({ x, y }); sxx += x * x; sxy += x * y;
         }
@@ -276,7 +289,7 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
         for (const r of runs.filter((r) => r[0].ts >= recentFrom)) {
           const rise = r[r.length - 1].u - r[0].u;
           if (rise < 1) continue;
-          const dw = windowUsage(db, win, r[0].ts, r[r.length - 1].ts, account, best.scheme).weight;
+          const dw = windowUsage(db, win, r[0].ts, r[r.length - 1].ts, account, best.scheme, defs).weight;
           observed += rise; explained += (dw / best.capacity) * 100; segments++;
           if (dw <= 0) offMachine++;
         }
@@ -300,7 +313,7 @@ export function calibrate(db, account = 'default', { now = Date.now(), recentDay
     const abs = [];
     for (const s of snaps) {
       if (s.resetsAt == null || s.u < 8) continue;
-      const { weight } = windowUsage(db, win, s.resetsAt - span, s.ts, account, DEFAULT_WEIGHT);
+      const { weight } = windowUsage(db, win, s.resetsAt - span, s.ts, account, DEFAULT_WEIGHT, defs);
       if (weight <= 0) continue;
       abs.push(weight / (s.u / 100));
     }
@@ -510,7 +523,7 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
     const remainingMs = resetsAt == null ? null : Math.max(0, resetsAt - now);
     // Burn/projection are meaningless for a window that has not started.
     if (idle) {
-      state[win] = { window: win, label: def.label, apiOnly: !!def.apiOnly, start: null, resetsAt: null,
+      state[win] = { window: win, label: def.label, apiOnly: !!def.apiOnly, scoped: !!def.scoped, families: def.families, start: null, resetsAt: null,
         resetSource: null, remainingMs: null, rolling, scheme, idle: true, stale, snapshotAge,
         utilization: 0, source, capacity, snapshotAt: snap?.ts ?? null,
         snapshotUtilization: snap?.utilization ?? null, local, coverage: cal[win]?.coverage ?? null,
@@ -530,7 +543,7 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
       ? utilization + utilPerHour * (remainingMs / HOUR) : null;
 
     state[win] = {
-      window: win, label: def.label, apiOnly: !!def.apiOnly,
+      window: win, label: def.label, apiOnly: !!def.apiOnly, scoped: !!def.scoped, families: def.families,
       start: idle ? null : start, resetsAt, resetSource, remainingMs, rolling, scheme,
       idle, stale, snapshotAge,
       coverage: cal[win]?.coverage ?? null,

@@ -6,6 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Per-model weekly windows are now calibrated and estimated, not just relayed.** A scoped window named after a model family we price (*Weekly Fable* → `seven_day_fable`) takes that family's transcripts as its local proxy: only Fable requests count towards it, it gets its own capacity fit, and between polls the reported number is advanced by what you have sent since (`live + local`). With no live token it falls back to `estimated` from local Fable requests instead of going stale at once — the desktop cache never carried this window, so before there was nothing to fall back to. Scopes that cannot be mapped to transcripts (a surface, an unknown model) are still reported straight from the API. The card names the family it counts (`fable only`), and `/api/summary` carries `scoped` and `families`.
+
+### Fixed
+- **Calibration threw away nearly all of its samples.** The usage endpoint's `resets_at` for one window jitters by up to a second from poll to poll, and the fit treated any difference as a new window, cutting almost every run to a single sample. On a real account the weekly fit had 11 points and the 5-hour fit 682; with an hour of tolerance (distinct windows sit at least 88 minutes apart) they have 2,313 and 4,342, and the weekly coverage figure rose from 47% to 77% because the fit finally sees whole windows. Only API-polled snapshots were affected; the desktop cache carries no `resets_at`.
+
+
 ## [1.5.11] — 2026-09-11
 
 ### Fixed

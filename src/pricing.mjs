@@ -48,6 +48,9 @@ export function familyOf(model) {
   return k ? PRICES[k].family : 'other';
 }
 
+/** Every model family a transcript can be attributed to ('opus', 'fable', ...). */
+export const FAMILIES = new Set(Object.values(PRICES).map((p) => p.family).filter((f) => f !== 'other'));
+
 export function priceFor(model, { fast = false, inferenceGeoUS = false } = {}) {
   const k = normalizeModel(model);
   if (!k) return ZERO;

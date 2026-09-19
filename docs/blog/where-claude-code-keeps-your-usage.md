@@ -93,7 +93,15 @@ The scoped entries are the interesting part: per-model weekly windows appear and
 disappear as Anthropic changes plans, and they exist *only* here — the desktop
 cache has no idea about them. So treat window names as data, not as an enum:
 derive `seven_day_<model>` from whatever the array reports and let the UI render
-whatever comes back.
+whatever comes back. When the scope names a model family you can recognise in
+transcripts, that family's requests are the window's local proxy, and the same
+capacity fit works on it — with the caveat that there is no cache to fall back
+on, so an estimate is all you have while no token is live.
+
+One more trap in this endpoint: `resets_at` for the same window jitters by up
+to a second between polls (and drifts by up to an hour inside one 5-hour
+window). Group samples into windows with a tolerance, not by equality, or every
+fit degrades to single-sample runs.
 
 Two practical notes. The endpoint is undocumented and rate-limits unknown clients
 hard, so poll no faster than every three minutes and send an honest

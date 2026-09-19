@@ -294,7 +294,9 @@ record them. Three sources are combined:
    `weekly_scoped` entries carrying a model scope) alongside the older top-level
    keys. The array is preferred, so a scoped window like *Weekly Fable* appears
    automatically without being hardcoded — and a plan that has no scoped limit
-   shows no empty card for one.
+   shows no empty card for one. A scoped window named after a model family is
+   calibrated on that family's transcripts alone (`fable only` on the card), so
+   it gets the same `live + local` and `estimated` treatment as the others.
 
 3. **Local interpolation.** Between snapshots the last real percentage is
    advanced by whatever you've used since.
@@ -392,8 +394,10 @@ long as it runs: it is read from the app's encrypted store
 `Claude Safe Storage` keychain item — macOS asks for permission the first time,
 click *Always Allow*), used only for the same read-only usage call, and never
 refreshed or written back. `claude-usage doctor` shows whether it is readable and
-why not if it isn't. With neither token live, the per-model window (Fable) is
-badged *stale* and the other windows fall back to the desktop app's usage cache.
+why not if it isn't. With neither token live, the account-wide windows fall back
+to the desktop app's usage cache; the per-model window (Fable) is not in that
+cache, so it is carried forward as an *estimate* from your local Fable requests
+until a token is live again.
 
 `claude setup-token` was tested as an alternative: it issues a year-long token,
 but the usage endpoint rejects it (401 — its scope is `user:inference`, not

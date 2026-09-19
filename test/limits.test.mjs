@@ -2,7 +2,7 @@ import { test } from 'node:test'; import assert from 'node:assert/strict';
 import { tempHome, load, FIXTURE_CONFIG_DIR } from './helpers.mjs';
 
 tempHome();
-const { db: DB, scanner, limits: L } = await load();
+const { db: DB, scanner, limits: L, pricing: P } = await load();
 const HOUR = 3600e3, DAY = 24 * HOUR;
 
 test('sessionBlocks splits on the 5-hour boundary and floors to the hour', () => {
@@ -33,6 +33,7 @@ test('weeklySchedule rejects off-cadence noise and snaps the phase to the hour',
   assert.equal(w.support, 4);
   assert.equal(w.precise, 2);
   assert.equal(new Date(w.resetsAt).toISOString(), '2026-09-06T01:00:00.000Z', 'Sunday 08:00 Bangkok');
+
 });
 
 test('weeklySchedule refuses to invent a schedule from a single drop', () => {
@@ -86,12 +87,80 @@ test('calibrate learns capacity from utilization deltas and picks a weighting', 
   assert.ok(cal.five_hour.coverage > 0.85, `local transcripts explain the rise (coverage=${cal.five_hour.coverage})`);
 });
 
+test('calibrate survives the jitter in resets_at between polls', () => {
+  // The endpoint's resets_at for one window differs by up to a second from poll
+  // to poll. Exact comparison split every run into single samples and left the
+  // weekly fit with 11 points on a real account; a tolerance keeps the run whole.
+  const db = DB.open();
+  db.exec('DELETE FROM events; DELETE FROM limit_snapshots; DELETE FROM limit_events; DELETE FROM meta');
+  const ins = db.prepare(`INSERT INTO events(key,ts,account,model,project,input,output,cache_read,cache_creation,cost,weight)
+    VALUES(?,?,'default','claude-opus-5','p',100,?,0,0,0,0)`);
+  const t0 = Date.parse('2026-09-01T00:00:00Z');
+  for (let i = 0; i < 40; i++) ins.run(`j${i}`, t0 + i * 150e3, 1000);
+  const snap = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',?,?)");
+  const resetsAt = t0 + 5 * HOUR;
+  for (let k = 0; k <= 12; k++) {
+    const t = t0 + k * 10 * 60e3;
+    snap.run(t, Math.round(k * 5), resetsAt + (k * 137) % 1000);   // sub-second jitter
+  }
+  const cal = L.calibrate(db, 'default', { now: t0 + 3 * HOUR });
+  assert.ok(cal.five_hour, 'five_hour calibrated');
+  assert.equal(cal.five_hour.method, 'cumulative-fit');
+  assert.equal(cal.five_hour.samples, 12, 'one run of 13 samples, not 13 runs of one');
+});
+
+test('a scoped weekly window is calibrated on its own family only', () => {
+  const db = DB.open();
+  db.exec('DELETE FROM events; DELETE FROM limit_snapshots; DELETE FROM limit_events; DELETE FROM meta');
+  const ins = db.prepare(`INSERT INTO events(key,ts,account,model,project,input,output,cache_read,cache_creation,cost,weight)
+    VALUES(?,?,'default',?,'p',100,?,0,0,?,0)`);
+  const t0 = Date.parse('2026-09-07T00:00:00Z');
+  // Fable requests drive the Fable window; a heavier stream of Opus requests in the
+  // same hours must not leak into its fit.
+  const fable = [];
+  for (let i = 0; i < 60; i++) {
+    const ev = { ts: t0 + i * 10 * 60e3, model: 'claude-fable-5-1', input: 100, output: 500 + (i % 4) * 300, cache_read: 0, cache_creation: 0 };
+    fable.push(ev);
+    ins.run(`f${i}`, ev.ts, ev.model, ev.output, 0);
+    ins.run(`o${i}`, ev.ts + 30e3, 'claude-opus-5', 5000, 0);
+  }
+  const snap = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','seven_day_fable',?,?)");
+  const resetsAt = t0 + 7 * DAY;
+  const total = (scheme, until = Infinity) => fable.filter((e) => e.ts < until).reduce((n, e) => n + P.weightOf(e, scheme), 0);
+  const CAP = total('cost') / 0.6;                             // 60 Fable requests = 60% of the window
+  for (let k = 0; k <= 40; k++) {
+    const t = t0 + k * 15 * 60e3;
+    snap.run(t, Math.round((total('cost', t) / CAP) * 100), resetsAt);
+  }
+  const cal = L.calibrate(db, 'default', { now: t0 + 11 * HOUR });
+  assert.ok(cal.seven_day_fable, 'scoped window calibrated');
+  // Input is tiny here, so several schemes are collinear with 'cost'; judge the
+  // fit in the winner's own units. Had the Opus stream leaked in, the capacity
+  // would be several times too large under every scheme.
+  const expected = total(cal.seven_day_fable.scheme) / 0.6;
+  const err = Math.abs(cal.seven_day_fable.capacity - expected) / expected;
+  assert.ok(err < 0.15, `Opus did not leak into the Fable fit (scheme=${cal.seven_day_fable.scheme}, err=${(err * 100).toFixed(1)}%)`);
+  // One Fable request and one Opus request after the last snapshot: only the
+  // Fable one advances the estimate past the reported number.
+  ins.run('f-late', t0 + 10.5 * HOUR, 'claude-fable-5-1', 800, 0);
+  ins.run('o-late', t0 + 10.5 * HOUR, 'claude-opus-5', 50000, 0);
+  const st = L.limitState(db, { account: 'default', now: t0 + 11 * HOUR });
+  const w = st.seven_day_fable;
+  assert.equal(w.apiOnly, false);
+  assert.deepEqual(w.families, ['fable']);
+  assert.equal(w.local.events, 61, 'only the 61 Fable requests are counted, none of the 61 Opus ones');
+  assert.equal(w.source, 'api+local');
+  const advance = w.utilization - w.snapshotUtilization;
+  assert.ok(advance > 0 && advance < 2, `one Fable request moves the estimate a little, not an Opus-sized jump (${advance.toFixed(2)})`);
+});
+
 test('limitState labels sources honestly', () => {
   const db = DB.open();
   const st = L.limitState(db, { account: 'default' });
   assert.ok(st.five_hour && st.seven_day);
   for (const w of Object.values(st)) {
-    assert.ok(['api', 'api+local', 'estimated', 'unavailable'].includes(w.source), w.source);
+    assert.ok(['api', 'api+local', 'estimated', 'unavailable', 'local'].includes(w.source), w.source);
+    if (w.source === 'local') assert.equal(w.idle, true, "'local' only names an idle window's 0%");
     if (w.utilization != null) assert.ok(w.utilization >= 0);
   }
 });
