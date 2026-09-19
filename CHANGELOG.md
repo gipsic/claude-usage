@@ -13,6 +13,9 @@ All notable changes are recorded here. The format follows
 - **Calibration threw away nearly all of its samples.** The usage endpoint's `resets_at` for one window jitters by up to a second from poll to poll, and the fit treated any difference as a new window, cutting almost every run to a single sample. On a real account the weekly fit had 11 points and the 5-hour fit 682; with an hour of tolerance (distinct windows sit at least 88 minutes apart) they have 2,313 and 4,342, and the weekly coverage figure rose from 47% to 77% because the fit finally sees whole windows. Only API-polled snapshots were affected; the desktop cache carries no `resets_at`.
 
 
+### Documentation
+- **Weekly resets that were not 7 days apart are real, and they do not move the schedule.** Six weeks of API-sourced history settled the open question: the account-wide weekly window resets on a fixed phase (Sunday morning, Bangkok), and the extra drops seen mid-week (Aug 20, Sep 2, Sep 5) were genuine resets — 94% → 0% across a 15-minute gap, then climbing again — after which the next reset landed back on the Sunday phase, 7.0 days after the previous Sunday one. So `weeklySchedule`'s phase clustering was the right design: the extra resets stay outside the cluster and the projection is never "last drop + 7 days". A test now carries the September data.
+
 ## [1.5.11] — 2026-09-11
 
 ### Fixed

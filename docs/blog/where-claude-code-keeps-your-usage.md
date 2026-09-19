@@ -64,8 +64,13 @@ have to be inferred: a 5-hour window starts at the last transition from zero to
 positive; a weekly reset is a drop, and the phase comes from drops where the
 samples on either side are close enough together to pin the hour. Worth knowing
 before you trust an inferred reset: the observed weekly gaps on a real account
-were 7, 4, 3, 7, 3 and 3 days. Whatever that is, it is not a clean cadence, so an
-inferred weekly reset should always lose to a reported one.
+were 7.1, 4.3, 2.8, 7.0, 2.7, 3.2, 1.0, 7.0 and 7.1 days. Six weeks of the
+endpoint's own `resets_at` explained that: the schedule itself is a fixed weekly
+phase (Sunday morning here), and the short gaps are extra resets on top of it —
+real ones, 94% to 0% across a 15-minute gap — after which the next reset is
+back on the Sunday phase. So cluster the drops on a 7-day period and take the
+phase from the cluster; never project "last drop + 7 days". And an inferred
+weekly reset should always lose to a reported one.
 
 ## 3. The usage endpoint: the numbers the app itself shows
 

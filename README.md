@@ -315,10 +315,13 @@ series itself:
   gap pins the hour; one seen across an 8-hour gap does not) and snapped to the
   hour, where real resets land.
 
-On a real account that recovers the exact reset time — 7 observed drops, 4 of
-which agree on a Sunday-08:00 schedule, with the other 3 correctly rejected as
-noise. Inferred times are still labelled **inferred** in the UI, and signing in
-replaces them with the exact `resets_at` Anthropic reports.
+On a real account that recovers the exact reset time — 10 observed drops over six
+weeks, 7 of which agree on a Sunday-morning schedule. The other 3 were real
+resets (94% → 0% inside a 15-minute gap, then climbing again), not cache noise,
+but the following Sunday reset still landed on the same phase, so they are
+correctly kept out of the schedule. Inferred times are still labelled
+**inferred** in the UI, and signing in replaces them with the exact `resets_at`
+Anthropic reports.
 
 Each window reports its `source`, shown in the UI as `live` (straight from
 Anthropic), `live + local`, or `estimated`. Before any real sample exists the

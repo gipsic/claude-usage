@@ -27,12 +27,23 @@ test('weeklySchedule rejects off-cadence noise and snaps the phase to the hour',
   ins.run(sun(23, 8, 2), 1);      // Sunday, precise
   ins.run(sun(30, 8, 13), 1);     // Sunday, precise
   ins.run(Date.parse('2026-09-02T00:54:00+07:00'), 1);  // Wednesday - noise
-  ins.run(Date.parse('2026-09-05T06:06:00+07:00'), 0);  // Friday - noise
+  ins.run(Date.parse('2026-09-05T06:06:00+07:00'), 0);  // Saturday - noise
   const now = Date.parse('2026-09-06T02:04:00+07:00');
   const w = L.weeklySchedule(db, 'seven_day', { account: 'default', now });
   assert.equal(w.support, 4);
   assert.equal(w.precise, 2);
   assert.equal(new Date(w.resetsAt).toISOString(), '2026-09-06T01:00:00.000Z', 'Sunday 08:00 Bangkok');
+  // Six weeks of API-sourced history (2026-09-20) settled what those mid-week
+  // drops were: real resets - the desktop cache saw 94% -> 0% across a 15-minute
+  // gap, and the count climbed again from zero - but they do not move the
+  // schedule. Every Sunday reset that followed (Sep 6 06:17, Sep 13 06:33,
+  // Sep 20 07:59) landed back on the same phase, 7.0 days apart. So the answer
+  // to "next reset" stays the Sunday cluster, never "last drop + 7 days".
+  ins.run(Date.parse('2026-09-06T06:17:00+07:00'), 1);
+  ins.run(Date.parse('2026-09-13T06:33:00+07:00'), 1);
+  const later = L.weeklySchedule(db, 'seven_day', { account: 'default', now: Date.parse('2026-09-14T00:00:00+07:00') });
+  assert.equal(later.support, 6, 'the three extra resets stay outside the cluster');
+  assert.equal(new Date(later.resetsAt).toISOString(), '2026-09-20T00:00:00.000Z', 'Sunday 07:00 Bangkok, from the latest precise member');
 
 });
 
