@@ -66,6 +66,19 @@ test('timeline marks each weekly reset where the series fell, and names the next
   assert.equal(u.weeklyResets[0].t, (t0 + 11 * 30 * 60e3 + reset + 10 * 60e3) / 2);
 });
 
+test('timeline carries each per-model weekly series for the chart', () => {
+  db.exec("DELETE FROM limit_snapshots");
+  const ins = db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default',?,?,NULL)");
+  for (let i = 0; i < 5; i++) { ins.run(NOW - i * HOUR, 'seven_day', 50 - i); ins.run(NOW - i * HOUR, 'seven_day_fable', 20 - i); }
+  ins.run(NOW, 'seven_day_claude_code', 3);                    // a surface scope, one sample: nothing to draw
+  const t = A.timeline(db, { account: 'default', range: '7d', now: NOW, capacity: {} });
+  assert.equal(t.scopedWeekly.length, 1);
+  assert.equal(t.scopedWeekly[0].window, 'seven_day_fable');
+  assert.equal(t.scopedWeekly[0].label, 'Weekly Fable');
+  assert.equal(t.scopedWeekly[0].samples.length, 5);
+  assert.equal(t.weekly.length, 5, 'the account-wide series is untouched');
+});
+
 test('a reset inside a local hour does not paint the next window as already full', () => {
   // The shape seen on a real dashboard: a window hits 100% and resets at :10,
   // not on the hour; the samples straddling the reset used to share one guessed

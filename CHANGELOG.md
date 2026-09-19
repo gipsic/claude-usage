@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.4] — 2026-09-20
+
+### Added
+- **Usage history draws the per-model weekly window too.** Weekly Fable gets its own dashed line beside the account-wide one (legend names it), and hovering anywhere on the plot reads out every weekly line's value at that time - inside a 5-hour box the box's tooltip carries the same rows. `/api/timeline` carries the series as `scopedWeekly`. These windows exist only in the API, so a stretch with no live token shows a gap rather than a guess.
+
 ## [1.6.3] — 2026-09-20
 
 ### Added

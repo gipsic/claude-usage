@@ -321,7 +321,9 @@ export function sessionHistoryChart(host, data, {
     }));
   }
 
-  // Session brackets, drawn behind the weekly line.
+  // Session brackets, drawn behind the weekly line. Their tooltips also show
+  // the weekly values at the cursor, through helpers defined further down.
+  const weeklyRowsRef = {}, timeAtRef = {};
   const gBlocks = el('g');
   for (const b of blocks) {
     const x0 = Math.max(m.l, X(b.start));
@@ -353,6 +355,7 @@ export function sessionHistoryChart(host, data, {
     hit.style.cursor = onPick ? 'pointer' : 'crosshair';
     hit.addEventListener('mousemove', (e) => {
       const when = new Date(b.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const week = weeklyRowsRef.fn ? weeklyRowsRef.fn(timeAtRef.fn(e)) : '';
       const top3 = Object.entries(b.models || {}).slice(0, 3)
         .map(([k, v]) => `<div class="tip-row"><span></span><span>${k.replace('claude-', '')}</span><b>${fmtMoney(v)}</b></div>`).join('');
       showTip(`<div class="tip-h">${b.active ? '● live · ' : ''}${when} + 5h</div>
@@ -360,7 +363,7 @@ export function sessionHistoryChart(host, data, {
         <div class="tip-row"><span></span><span>requests</span><b>${b.events}</b></div>
         <div class="tip-row"><span></span><span>tokens</span><b>${fmtCompact(b.tokens)}</b></div>
         <div class="tip-row"><span></span><span>cost</span><b>${fmtMoney(b.cost)}</b></div>
-        ${top3}`, e);
+        ${top3}${week}`, e);
     });
     hit.addEventListener('mouseleave', hideTip);
     if (onPick) hit.addEventListener('click', () => onPick(b));
@@ -369,13 +372,14 @@ export function sessionHistoryChart(host, data, {
   }
   svg.append(gBlocks);
 
-  if (weekly.length > 1) {
-    // Utilization only falls when the window resets. Draw that as it happened:
-    // straight down to zero at the reset instant, then a new climb - not a
-    // slope across the sampling gap, which would read as a gradual decline.
+  // Utilization only falls when the window resets. Draw that as it happened:
+  // straight down to zero at the reset instant, then a new climb - not a
+  // slope across the sampling gap, which would read as a gradual decline.
+  const drawWeekly = (series, cls) => {
+    if (series.length < 2) return;
     const segs = [[]];
-    for (let i = 0; i < weekly.length; i++) {
-      const w = weekly[i], prev = weekly[i - 1];
+    for (let i = 0; i < series.length; i++) {
+      const w = series[i], prev = series[i - 1];
       if (prev && w.u < prev.u - 2) {
         const r = prev.resetsAt != null && prev.resetsAt > prev.t && prev.resetsAt <= w.t
           ? prev.resetsAt : (prev.t + w.t) / 2;
@@ -388,12 +392,55 @@ export function sessionHistoryChart(host, data, {
       if (seg.length < 2) continue;
       svg.append(el('polyline', {
         points: seg.map((w) => `${X(w.t).toFixed(1)},${Y(w.u).toFixed(1)}`).join(' '),
-        class: 'weekly-line', fill: 'none',
+        class: cls, fill: 'none',
       }));
     }
-    const last = weekly[weekly.length - 1];
-    svg.append(el('circle', { cx: X(last.t), cy: Y(last.u), r: 3.5, class: 'weekly-dot' }));
-  }
+    const last = series[series.length - 1];
+    svg.append(el('circle', { cx: X(last.t), cy: Y(last.u), r: 3.5, class: `${cls}-dot` }));
+  };
+  // Per-model weekly windows (Weekly Fable) first, thinner and dashed, so the
+  // account-wide line stays on top where they overlap.
+  const scoped = (data.scopedWeekly || []).filter((s) => s.samples.length > 1);
+  for (const s of scoped) drawWeekly(s.samples, 'scoped-line');
+  drawWeekly(weekly, 'weekly-line');
+
+  // Hover readout for the weekly lines: the value each series had at the
+  // cursor's time. Sits beneath the block hit-areas, which add the same rows to
+  // their own tooltip, so the readout is available everywhere on the plot.
+  const valueAt = (series, t) => {
+    if (!series.length || t < series[0].t) return null;
+    let lo = 0, hi = series.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (series[mid].t <= t) lo = mid; else hi = mid - 1; }
+    const s = series[lo], next = series[lo + 1];
+    // A stale sample well before the cursor says nothing about it (token gap).
+    if (next && next.t - s.t > 6 * 3600e3 && t - s.t > 30 * 60e3) return null;
+    return s.u;
+  };
+  const weeklyRows = (t) => {
+    const rows = [];
+    const u = valueAt(weekly, t);
+    if (u != null) rows.push(`<div class="tip-row"><span class="sw weekly"></span><span>${data.weeklySource === 'recorded' ? 'weekly' : 'weekly (est.)'}</span><b>${u.toFixed(0)}%</b></div>`);
+    for (const s of scoped) {
+      const v = valueAt(s.samples, t);
+      if (v != null) rows.push(`<div class="tip-row"><span class="sw scoped"></span><span>${s.label.toLowerCase()}</span><b>${v.toFixed(0)}%</b></div>`);
+    }
+    return rows.join('');
+  };
+  const timeAt = (evt) => {
+    const r = svg.getBoundingClientRect();
+    const x = (evt.clientX - r.left) * (W / r.width);
+    return from + ((x - m.l) / iw) * span;
+  };
+  weeklyRowsRef.fn = weeklyRows; timeAtRef.fn = timeAt;
+  const readout = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' });
+  readout.addEventListener('mousemove', (e) => {
+    const t = timeAt(e);
+    const rows = weeklyRows(t);
+    if (!rows) return hideTip();
+    showTip(`<div class="tip-h">${new Date(t).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</div>${rows}`, e);
+  });
+  readout.addEventListener('mouseleave', hideTip);
+  svg.insertBefore(readout, gBlocks);
 
   // Weekly resets: a marker where the window rolled over, labelled with the
   // time it happened, and a note on the next one. The schedule is fixed

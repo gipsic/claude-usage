@@ -491,8 +491,16 @@ export function timeline(db, { account = 'default', range = '7d', now = Date.now
     if (t != null) nextWeeklyReset = { t, source: 'inferred' };
   }
 
+  // Per-model weekly windows (Weekly Fable): their recorded series, so the
+  // chart can draw them beside the account-wide line. API-only data - the
+  // desktop cache never carried these - so a stretch with no token shows a gap.
+  const scopedWeekly = Object.entries(activeWindows(db, account))
+    .filter(([, d]) => d.scoped && d.span === SEVEN_D)
+    .map(([win, d]) => ({ window: win, label: d.label, samples: snapshots(win) }))
+    .filter((s) => s.samples.length > 1);
+
   return {
-    from, to: now, range, blocks, weekly, weeklyResets, nextWeeklyReset,
+    from, to: now, range, blocks, weekly, weeklyResets, nextWeeklyReset, scopedWeekly,
     relative, relativeWeekly, weeklySource,
     recordedBlocks, totalBlocks: blocks.length,
     capacity: { block: blockCap, week: capacity.seven_day?.capacity || null },

@@ -238,6 +238,7 @@ async function renderMain() {
     $('#legend-main').innerHTML = `
       <span class="key"><i style="background:var(--c-input);opacity:.6"></i>${blockLabel}</span>
       <span class="key"><i style="background:var(--accent)"></i>${weekLabel}</span>
+      ${(t.scopedWeekly || []).map((s) => `<span class="key"><i style="background:var(--c-cachewrite)"></i>${esc(s.label.toLowerCase())} (recorded)</span>`).join('')}
       ${t.relative ? '' : `
         <span class="key"><i style="background:var(--warn)"></i>80%</span>
         <span class="key"><i style="background:var(--danger)"></i>95%</span>`}`;
