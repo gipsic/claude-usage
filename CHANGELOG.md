@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.7] — 2026-09-20
+
+### Added
+- **An even-pace line on Usage history.** A faint dotted line from the current weekly window's start (0%) to its reset (100%): the weekly line above it means the week is being spent faster than evenly, below it slower. Legend names it; it needs a known reset time, so it is absent while the weekly window is only a relative estimate.
+
+### Tests
+- Every dashboard script is parsed by the suite, and `index.html` may reference only local files.
+
 ## [1.6.6] — 2026-09-20
 
 ### Fixed

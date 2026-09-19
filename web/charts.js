@@ -455,7 +455,21 @@ export function sessionHistoryChart(host, data, {
     if (x > W - m.r - 70) tag.setAttribute('x', x - 4), tag.setAttribute('text-anchor', 'end');
     svg.append(tag);
   }
+  // Even pace: a faint line from the current weekly window's start (0%) to its
+  // reset (100%). The weekly line above it means the week is being spent faster
+  // than evenly, below it slower - a glance says whether the pace holds.
   const next = data.nextWeeklyReset;
+  if (next && !relativeNote && !data.relativeWeekly) {
+    const start = next.t - 7 * 864e5;
+    const x0 = Math.max(m.l, X(start)), x1 = Math.min(W - m.r, X(to));
+    if (x1 > x0 + 4) {
+      const u0 = ((Math.max(start, from) - start) / (7 * 864e5)) * 100;
+      const u1 = ((to - start) / (7 * 864e5)) * 100;
+      const line = el('line', { x1: x0, y1: Y(u0), x2: x1, y2: Y(u1), class: 'pace-line' });
+      line.append(el('title', {}, ['even pace: the weekly window spent evenly from its start to its reset']));
+      svg.append(line);
+    }
+  }
   if (next && !relativeNote) {
     const inMs = next.t - to;
     const dur = inMs < 3600e3 ? `${Math.max(1, Math.round(inMs / 60e3))} min`

@@ -241,6 +241,7 @@ async function renderMain() {
       <span class="key"><i style="background:var(--c-input);opacity:.6"></i>${blockLabel}</span>
       <span class="key"><i style="background:var(--accent)"></i>${weekLabel}</span>
       ${(t.scopedWeekly || []).map((s) => `<span class="key"><i style="background:var(--c-cachewrite)"></i>${esc(s.label.toLowerCase())} (recorded)</span>`).join('')}
+      ${t.nextWeeklyReset && !t.relativeWeekly ? '<span class="key" title="The weekly window spent evenly from its start to its reset. Above it: faster than even; below: slower."><i class="dotted"></i>even pace</span>' : ''}
       ${t.relative ? '' : `
         <span class="key"><i style="background:var(--warn)"></i>80%</span>
         <span class="key"><i style="background:var(--danger)"></i>95%</span>`}`;
