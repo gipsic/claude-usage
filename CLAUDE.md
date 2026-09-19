@@ -1,7 +1,7 @@
 # claude-usage — engineering handoff
 
-Read this before touching code. It is the state of the project as of 2026-09-07
-(v1.0.4 on npm), the decisions that were made deliberately, the traps already
+Read this before touching code. It is the state of the project as of 2026-09-20
+(v1.6.0), the decisions that were made deliberately, the traps already
 stepped in, and what to build next. The user (Wisit, GIPSIC) reads Thai and
 English; reply in the language they write in, and lead with status.
 
@@ -61,7 +61,11 @@ test/                 node:test, hermetic (see Testing)
   `limits` array (`session`, `weekly_all`, `weekly_scoped` with
   `scope.model.display_name`, e.g. Fable) — preferred over the legacy top-level
   `five_hour/seven_day/seven_day_opus` keys. Scoped windows become
-  `seven_day_<slug>` dynamically (`limits.activeWindows`). Poll ≥180 s (default 180).
+  `seven_day_<slug>` dynamically (`limits.activeWindows`); when the slug is a family
+  we price (`pricing.FAMILIES`) the window takes that family's transcripts as its
+  local proxy and is calibrated like the others, otherwise it is `apiOnly`. Poll
+  ≥180 s (default 180). `resets_at` jitters by up to ~1 s between polls: never
+  compare it for equality (that cut calibration to single-sample runs until 1.6.0).
 - **Desktop app cache** `plan-usage-history.json`: `{t, org, u:{fh, sd}}` every
   ~15 min while the app runs; rolling ~30 days; imported every scan tick (30 s) so
   the DB keeps history the app discards. No `resets_at` — resets are inferred.
@@ -90,7 +94,9 @@ live do API-only windows go stale.
   `observedBlockStart`): 5-hour windows start at the last 0→positive transition
   (not hour-aligned); weekly resets are drops clustered on a 7-day period, phase
   taken from *confident* drops (sample gap ≤ 2 h) and snapped to the hour. Observed
-  weekly resets are NOT a clean cadence (7,4,3,7,3,3 days seen) — the API's
+  weekly gaps were 7.1, 4.3, 2.8, 7.0, 2.7, 3.2, 1.0, 7.0, 7.1 days: a fixed Sunday
+  phase plus real extra resets (confirmed 94%→0% across 15-min gaps) that do NOT
+  move the phase - hence cluster-by-phase, never "last drop + 7 d". The API's
   `resets_at` always wins.
 - **Idle / stale** (`limits.limitState`): a 5-hour snapshot older than 5 h with
   nothing sent since ⇒ `idle` (0 %, no reset) — but only with evidence a window
@@ -137,7 +143,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 61 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 63 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
@@ -199,16 +205,21 @@ dispatch with `github_packages`, and the npm job with `npm_registry`.
 Never move a pushed tag (done once for v1.0.4 with zero consumers; don't repeat).
 npm README/versions pages lag the registry by minutes; trust `npm view`.
 
-## What is actually next (2026-09-07, after A-D shipped)
+## What is actually next (2026-09-20)
 
-1. **Publish.** v1.1.0, v1.2.0 and v1.3.0 are tagged and released on GitHub but
-   none of them is on npm, where 1.0.4 is still latest - publish once, as 1.3.0,
-   and the skipped versions simply never exist there. Provenance route: add the
-   `NPM_TOKEN` secret and run the *Publish to npm* workflow against the tag.
-2. **Verify Windows on real hardware.** Everything in C is CI-only: nobody has
+Publishing is solved: every tag since 1.5.6 reached npm through the *Publish to
+npm* workflow (OIDC stage + `npm stage approve`), and the Homebrew tap follows
+each tag. The local `~/.npmrc` token expires between sessions (`npm stage list`
+→ 401), so the approve step starts with `npm login`.
+
+1. **Verify Windows on real hardware.** Everything in C is CI-only: nobody has
    registered the scheduled task, seen a toast, completed a console sign-in, or
    exercised the DPAPI master-key read. Until someone does, keep calling it beta.
-3. The **open questions** below, which need long API-sourced history.
+2. **Watch the scoped-window fit.** 1.6.0 calibrates `seven_day_fable` on Fable
+   transcripts (first real fit: cumulative, 2,660 samples, coverage 0.78). If a
+   scope ever names something that is not a family (a surface), it stays
+   `apiOnly` by design - do not invent a proxy for it.
+3. The remaining **open questions** below.
 
 ## The plan of 2026-09-07 (A-D, all shipped)
 
@@ -289,9 +300,11 @@ Not doing: any ingest server / telemetry.
 
 ## Open questions
 
-- Weekly resets that aren't 7 days apart — real behaviour or cache artefacts?
-  Only resolvable with long API-sourced history.
+- ~~Weekly resets that aren't 7 days apart — real behaviour or cache artefacts?~~
+  Resolved 2026-09-20 with six weeks of API history: real resets on top of a
+  fixed weekly phase; the phase does not move (see Reset inference above).
 - Calibration across Anthropic's temporary limit boosts ("50% higher through
   Sep 13") — a regime step; currently handled by fitting on recent segments.
 - `seven_day` from the desktop cache vs `weekly_all` from the API are the same
-  window; the scoped Fable window exists only via the API.
+  window; the scoped Fable window exists only via the API (since 1.6.0 it is
+  estimated from local Fable transcripts while no token is live, never cached).

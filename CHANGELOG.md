@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-09-20
+
 ### Added
 - **Per-model weekly windows are now calibrated and estimated, not just relayed.** A scoped window named after a model family we price (*Weekly Fable* → `seven_day_fable`) takes that family's transcripts as its local proxy: only Fable requests count towards it, it gets its own capacity fit, and between polls the reported number is advanced by what you have sent since (`live + local`). With no live token it falls back to `estimated` from local Fable requests instead of going stale at once — the desktop cache never carried this window, so before there was nothing to fall back to. Scopes that cannot be mapped to transcripts (a surface, an unknown model) are still reported straight from the API. The card names the family it counts (`fable only`), and `/api/summary` carries `scoped` and `families`.
 
