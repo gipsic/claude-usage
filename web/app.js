@@ -209,7 +209,14 @@ async function renderSession(sum) {
   // Bound to the window itself: it opened with its first message, which is
   // rarely five hours ago, and the previous window's tail must not show here.
   const s = await api('/api/series', { range: '5h', bucket: 5 * 60e3, ...(w.start ? { from: w.start } : {}) });
-  stackedChart(host, s.points, {
+  // Pad with empty buckets to the window's end so the axis spans the whole
+  // window and a just-opened window is not stretched across the chart.
+  const points = s.points.slice();
+  if (w.resetsAt && points.length) {
+    const zero = Object.fromEntries(SERIES.map((k) => [k.key, 0]));
+    for (let b = points[points.length - 1].b + s.bucket; b < w.resetsAt; b += s.bucket) points.push({ b, ...zero, events: 0, cost: 0 });
+  }
+  stackedChart(host, points, {
     series: SERIES, height: 190, mode: 'bar',
     xFmt: (b, full) => new Date(b).toLocaleTimeString([], full
       ? { hour: '2-digit', minute: '2-digit', second: '2-digit' }

@@ -195,6 +195,20 @@ test('pickScheme keeps the incumbent weighting unless a challenger is clearly be
   assert.equal(L.pickScheme([], 'cost'), null);
 });
 
+test('a burn rate is not read off the first minutes of a window', () => {
+  const db = DB.open();
+  db.exec('DELETE FROM events; DELETE FROM limit_snapshots; DELETE FROM limit_events; DELETE FROM meta');
+  const now = Date.parse('2026-09-20T01:15:00Z');
+  const opened = now - 5 * 60e3;                                   // five minutes ago
+  db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',8,?)").run(now - 60e3, opened + 5 * HOUR);
+  db.prepare("INSERT INTO meta(k,v) VALUES('calibration:default',?)").run(JSON.stringify({ five_hour: { capacity: 10, scheme: 'cost' } }));
+  db.prepare(`INSERT INTO events(key,ts,account,model,project,input,output,cache_read,cache_creation,cost,weight)
+    VALUES('a',?,'default','claude-opus-5','p',1000,1000,0,0,0,0)`).run(opened + 60e3);
+  const w = L.limitState(db, { account: 'default', now }).five_hour;
+  const perHourIfNaive = (w.local.weight / (5 * 60e3)) * HOUR / 10 * 100;
+  assert.ok(w.utilPerHour < perHourIfNaive / 5, `rate spread over 30 min, not 5 (${w.utilPerHour.toFixed(1)}%/h vs naive ${perHourIfNaive.toFixed(1)})`);
+});
+
 test('limitState labels sources honestly', () => {
   const db = DB.open();
   const st = L.limitState(db, { account: 'default' });

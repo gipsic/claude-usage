@@ -1,7 +1,7 @@
 # claude-usage — engineering handoff
 
 Read this before touching code. It is the state of the project as of 2026-09-20
-(v1.6.8), the decisions that were made deliberately, the traps already
+(v1.6.9), the decisions that were made deliberately, the traps already
 stepped in, and what to build next. The user (Wisit, GIPSIC) reads Thai and
 English; reply in the language they write in, and lead with status.
 
@@ -153,7 +153,7 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 73 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 74 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or

@@ -6,6 +6,12 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.9] — 2026-09-20
+
+### Fixed
+- **Right after a window opened, the cards forecast nonsense.** A burst five minutes into a fresh 5-hour window read as `74.8%/hr · empty ~09:29 AM`, and one request into the new week as `empty ~Mon`. Rates are now measured over at least a tenth of the window (30 min for the session, ~17 h for the weekly), so early usage is spread over a span that can carry it.
+- **The Current session chart spilled out of its panel** when the window had one or two five-minute buckets: each bar was sized as a share of the chart and hung past the axis. Bars are capped, and the axis now spans the whole window (empty buckets to the reset), so a just-opened window shows a small bar at the left, not a wall.
+
 ## [1.6.8] — 2026-09-20
 
 ### Fixed

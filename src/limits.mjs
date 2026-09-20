@@ -570,8 +570,14 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
         remainingWeight: capacity };
       continue;
     }
-    const burnPerHour = (local.weight / elapsed) * HOUR;            // weight units/hour
-    const costPerHour = (local.cost / elapsed) * HOUR;
+    // A rate measured over the first minutes of a window is noise dressed as
+    // a forecast (one burst five minutes in read as 75%/hr and "empty by
+    // 09:29"). Rates are measured over at least a tenth of the window - 30 min
+    // for the 5-hour one, ~17 h for the weekly - so early usage is spread over
+    // a span that can carry it.
+    const rateElapsed = Math.max(elapsed, def.span / 10);
+    const burnPerHour = (local.weight / rateElapsed) * HOUR;        // weight units/hour
+    const costPerHour = (local.cost / rateElapsed) * HOUR;
     const utilPerHour = capacity ? (burnPerHour / capacity) * 100 : null;
     let exhaustAt = null;
     if (utilization != null && utilPerHour > 0 && utilization < 100) {

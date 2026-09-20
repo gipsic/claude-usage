@@ -99,7 +99,9 @@ export function stackedChart(host, points, {
   }
 
   if (mode === 'bar') {
-    const bw = Math.max(1, (iw / points.length) - 1);
+    // With one or two buckets (a window that just opened) iw/points would be a
+    // bar half the chart wide, hanging out past the axis. Cap it.
+    const bw = Math.max(1, Math.min(28, (iw / points.length) - 1));
     points.forEach((p, i) => {
       let acc = 0;
       const g = el('g');
