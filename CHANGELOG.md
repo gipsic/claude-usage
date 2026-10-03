@@ -6,6 +6,12 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.10] — 2026-10-03
+
+### Fixed
+- **Claude Opus 5.5 and Claude Sonnet 5.5 are priced as themselves.** Neither was in the price table, so an unknown id fell back to the longest known prefix: Opus 5.5 requests were billed at Opus 5's $5 / $25 per MTok instead of $4 / $20 (cache hits at $0.50 instead of $0.20 - Opus 5.5 reads at 0.05x base input, not 0.1x), overstating their cost by about a quarter, and fast mode left them at the standard price because only Opus 5 and 4.8 were listed as repriceable. Fast mode is now per model ($8 / $40 on Opus 5.5, $10 / $50 on Opus 5 and 4.8), and a bare `opus` / `sonnet` in a transcript resolves to the current model of that family.
+- **A price correction now reaches history.** `cost` and `weight` are computed once, at scan time, so corrected prices used to apply only to events scanned after the upgrade. `pricing.PRICING_VERSION` is stamped in the database, and when it moves both columns are recomputed from the untouched token columns for every event already stored. (Calibration was never affected - it weights raw tokens on every tick.) **Restart the agent after upgrading** (`claude-usage restart`): the repricing runs when a process opens the database, and a running daemon keeps the old code.
+
 ## [1.6.9] — 2026-09-20
 
 ### Fixed

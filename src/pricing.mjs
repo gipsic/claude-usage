@@ -1,3 +1,8 @@
+// Bumped whenever the tables below change in a way that moves a stored cost or
+// weight; db.open() then recomputes both columns for every event already scanned
+// (src/db.mjs -> reprice), so a price correction reaches history, not just new rows.
+export const PRICING_VERSION = 2;
+
 // Per-million-token prices, USD. Source: platform.claude.com/docs/en/about-claude/pricing
 // Columns: base input, 5m cache write, 1h cache write, cache read (hit), output.
 export const PRICES = {
@@ -5,6 +10,7 @@ export const PRICES = {
   'claude-mythos-5-1':  { in: 10,   w5m: 12.50, w1h: 20,   read: 0.25, out: 50, family: 'fable'  },
   'claude-fable-5':     { in: 10,   w5m: 12.50, w1h: 20,   read: 1.00, out: 50, family: 'fable'  },
   'claude-mythos-5':    { in: 10,   w5m: 12.50, w1h: 20,   read: 1.00, out: 50, family: 'fable'  },
+  'claude-opus-5-5':    { in:  4,   w5m:  5.00, w1h:  8,   read: 0.20, out: 20, family: 'opus'   },
   'claude-opus-5':      { in:  5,   w5m:  6.25, w1h: 10,   read: 0.50, out: 25, family: 'opus'   },
   'claude-opus-4-8':    { in:  5,   w5m:  6.25, w1h: 10,   read: 0.50, out: 25, family: 'opus'   },
   'claude-opus-4-7':    { in:  5,   w5m:  6.25, w1h: 10,   read: 0.50, out: 25, family: 'opus'   },
@@ -12,6 +18,7 @@ export const PRICES = {
   'claude-opus-4-5':    { in:  5,   w5m:  6.25, w1h: 10,   read: 0.50, out: 25, family: 'opus'   },
   'claude-opus-4-1':    { in: 15,   w5m: 18.75, w1h: 30,   read: 1.50, out: 75, family: 'opus'   },
   'claude-opus-4':      { in: 15,   w5m: 18.75, w1h: 30,   read: 1.50, out: 75, family: 'opus'   },
+  'claude-sonnet-5-5':  { in:  2,   w5m:  2.50, w1h:  4,   read: 0.20, out: 10, family: 'sonnet' },
   'claude-sonnet-5':    { in:  2,   w5m:  2.50, w1h:  4,   read: 0.20, out: 10, family: 'sonnet' },
   'claude-sonnet-4-6':  { in:  3,   w5m:  3.75, w1h:  6,   read: 0.30, out: 15, family: 'sonnet' },
   'claude-sonnet-4-5':  { in:  3,   w5m:  3.75, w1h:  6,   read: 0.30, out: 15, family: 'sonnet' },
@@ -20,10 +27,15 @@ export const PRICES = {
   'claude-haiku-3-5':   { in:  0.8, w5m:  1.00, w1h:  1.6, read: 0.08, out:  4, family: 'haiku'  },
 };
 
-// Fast mode (research preview) reprices Opus 5 / 4.8 at $10 in / $50 out.
-// Cache multipliers (1.25x / 2x / 0.1x) stack on top of the fast base input price.
-const FAST = { in: 10, w5m: 12.50, w1h: 20, read: 1.00, out: 50 };
-const FAST_MODELS = new Set(['claude-opus-5', 'claude-opus-4-8']);
+// Fast mode (research preview) reprices Opus at a premium, per model: Opus 5.5
+// $8 in / $40 out, Opus 5 and 4.8 $10 / $50. The cache multipliers (1.25x / 2x
+// write, and the model's own read multiplier - 0.05x on Opus 5.5, 0.1x on the
+// others) stack on top of the fast base input price. No other model has it.
+const FAST = {
+  'claude-opus-5-5': { in:  8, w5m: 10.00, w1h: 16, read: 0.40, out: 40 },
+  'claude-opus-5':   { in: 10, w5m: 12.50, w1h: 20, read: 1.00, out: 50 },
+  'claude-opus-4-8': { in: 10, w5m: 12.50, w1h: 20, read: 1.00, out: 50 },
+};
 
 const ZERO = { in: 0, w5m: 0, w1h: 0, read: 0, out: 0, family: 'other' };
 
@@ -35,7 +47,8 @@ export function normalizeModel(model) {
   const undated = model.replace(/-\d{8}$/, '');
   if (PRICES[undated]) return undated;
   // Bare aliases Claude Code sometimes writes.
-  const alias = { opus: 'claude-opus-5', sonnet: 'claude-sonnet-5', haiku: 'claude-haiku-4-5', fable: 'claude-fable-5-1' };
+  // A bare alias means whatever is current in that family today.
+  const alias = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-4-5', fable: 'claude-fable-5-1' };
   if (alias[model]) return alias[model];
   // Longest known-prefix match, so a future dated variant still prices.
   let best = null;
@@ -55,7 +68,7 @@ export function priceFor(model, { fast = false, inferenceGeoUS = false } = {}) {
   const k = normalizeModel(model);
   if (!k) return ZERO;
   let p = PRICES[k];
-  if (fast && FAST_MODELS.has(k)) p = { ...FAST, family: p.family };
+  if (fast && FAST[k]) p = { ...FAST[k], family: p.family };
   if (inferenceGeoUS) p = { ...p, in: p.in * 1.1, w5m: p.w5m * 1.1, w1h: p.w1h * 1.1, read: p.read * 1.1, out: p.out * 1.1 };
   return p;
 }

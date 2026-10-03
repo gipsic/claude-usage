@@ -150,6 +150,12 @@ live do API-only windows go stale.
 - node lives under nvm here; launchd/GUI PATH lacks it. The launcher resolves it;
   `install-daemon.sh` pins the node dir into the plist.
 - Cache-write buckets, fast mode and web-search fees are in `pricing.costOf`.
+  An unknown model id does not throw: `normalizeModel` falls back to the longest
+  known *prefix*, so `claude-opus-5-5` silently billed at `claude-opus-5` rates
+  until 1.6.10 added it. Add every new model to `pricing.PRICES` and bump
+  `pricing.PRICING_VERSION` - events store `cost`/`weight` at scan time, and that
+  stamp is what makes `db.open()` recompute them for history (`db.reprice`).
+  Calibration is unaffected either way: it re-weights raw tokens every tick.
 
 ## Testing
 

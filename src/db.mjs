@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { costOf, weightOf, PRICING_VERSION } from './pricing.mjs';
 
 export const DATA_DIR = process.env.CLAUDE_USAGE_HOME || path.join(os.homedir(), '.claude-usage');
 
@@ -11,6 +12,7 @@ export function open() {
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA synchronous = NORMAL');
   migrate(db);
+  reprice(db);
   return db;
 }
 
@@ -92,6 +94,34 @@ function migrate(db) {
 
     CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
   `);
+}
+
+/**
+ * `cost` and `weight` are computed once, at scan time, so a change to the price
+ * tables would otherwise only reach events scanned after the upgrade - history
+ * would keep whatever a since-corrected or missing model entry charged it. Both
+ * columns are recomputed from the untouched token columns whenever
+ * pricing.PRICING_VERSION moves, which makes this lossless and idempotent.
+ */
+function reprice(db) {
+  if (getMeta(db, 'pricing_version') === String(PRICING_VERSION)) return;
+  const rows = db.prepare(
+    `SELECT key, model, speed, inference_geo, input, output, cache_read, cache_creation,
+            cache_5m, cache_1h, web_search, cost, weight FROM events`
+  ).all();
+  const upd = db.prepare('UPDATE events SET cost = ?, weight = ? WHERE key = ?');
+  db.exec('BEGIN');
+  try {
+    for (const r of rows) {
+      const cost = costOf(r), weight = weightOf(r);
+      if (cost !== r.cost || weight !== r.weight) upd.run(cost, weight, r.key);
+    }
+    setMeta(db, 'pricing_version', PRICING_VERSION);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
 }
 
 export function getMeta(db, k, fallback = null) {
