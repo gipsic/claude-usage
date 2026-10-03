@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.11] — 2026-10-03
+
+### Fixed
+- **The dashboard merged Claude Opus 5.5 into Opus 5.** `model` is stored normalised, and an id the price table does not know normalises to the nearest known *prefix* - so every Opus 5.5 request since it shipped was recorded, labelled and billed as `claude-opus-5`. Adding the price (1.6.10) only fixed new events: the old rows no longer held the real id, so nothing could recompute it. A price-table bump now also clears the scan bookkeeping, the next ordinary scan re-reads every transcript from the start, and a line already stored updates its `model`, `cost` and `weight` in place instead of being skipped as a duplicate. Session, project and token history is untouched; events whose transcript Claude Code has since deleted keep what they have.
+
 ## [1.6.10] — 2026-10-03
 
 ### Fixed

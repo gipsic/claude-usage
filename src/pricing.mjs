@@ -1,7 +1,7 @@
 // Bumped whenever the tables below change in a way that moves a stored cost or
 // weight; db.open() then recomputes both columns for every event already scanned
 // (src/db.mjs -> reprice), so a price correction reaches history, not just new rows.
-export const PRICING_VERSION = 2;
+export const PRICING_VERSION = 3;
 
 // Per-million-token prices, USD. Source: platform.claude.com/docs/en/about-claude/pricing
 // Columns: base input, 5m cache write, 1h cache write, cache read (hit), output.

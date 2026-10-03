@@ -92,8 +92,17 @@ export function scan(db, { configDir, account = 'default', full = false, onProgr
     'INSERT INTO files(path,size,mtime,offset,scanned) VALUES(?,?,?,?,?) ' +
     'ON CONFLICT(path) DO UPDATE SET size=excluded.size, mtime=excluded.mtime, offset=excluded.offset, scanned=excluded.scanned'
   );
+  // A duplicate key is the same request seen again (a resumed or forked session
+  // replays it), so the row stays as it is - except for the three derived columns.
+  // Those are written from the price table at scan time, and `model` is stored
+  // normalised: before a new model id reaches pricing.PRICES it normalises to the
+  // nearest known prefix, which both mislabels the row and misprices it. A price
+  // bump resets the scan offsets (db.reprice), and re-reading the line then
+  // corrects all three in place rather than leaving history on the old prices.
   const ins = db.prepare(
-    `INSERT INTO events(${COLS.join(',')}) VALUES(${COLS.map(() => '?').join(',')}) ON CONFLICT(key) DO NOTHING`
+    `INSERT INTO events(${COLS.join(',')}) VALUES(${COLS.map(() => '?').join(',')})
+     ON CONFLICT(key) DO UPDATE SET model = excluded.model, cost = excluded.cost, weight = excluded.weight
+     WHERE model IS NOT excluded.model OR cost IS NOT excluded.cost OR weight IS NOT excluded.weight`
   );
 
   let inserted = 0, filesRead = 0, i = 0;

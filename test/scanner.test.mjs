@@ -44,3 +44,32 @@ test('appending to a transcript only reads the new tail', () => {
     scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default', full: true });
   }
 });
+
+test('a re-read repairs a row stored before its model had a price', () => {
+  const db = DB.open();
+  const file = path.join(FIXTURE_CONFIG_DIR, 'projects', '-Users-x-proj', 'b.jsonl');
+  const before = fs.readFileSync(file, 'utf8');
+  const key = 'req_o55|msg_o55';
+  const extra = JSON.stringify({ type: 'assistant', timestamp: '2026-09-25T09:00:00Z', requestId: 'req_o55', sessionId: 's1', cwd: '/Users/x/proj',
+    message: { id: 'msg_o55', model: 'claude-opus-5-5', usage: { input_tokens: 1e6, output_tokens: 1e6 } } });
+  fs.appendFileSync(file, (before.endsWith('\n') ? '' : '\n') + extra + '\n');
+  try {
+    scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default' });
+    assert.equal(db.prepare('SELECT model m FROM events WHERE key = ?').get(key).m, 'claude-opus-5-5');
+
+    // How the row looked when claude-opus-5-5 was not in the price table: the id
+    // normalised to the nearest known prefix and was billed at that model's rates.
+    db.prepare("UPDATE events SET model = 'claude-opus-5', cost = 30, weight = 30 WHERE key = ?").run(key);
+    db.exec('UPDATE files SET size = 0, mtime = 0, offset = 0');   // what db.reprice does on a bump
+
+    const r = scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default' });
+    assert.equal(r.inserted, 1, 'only the repaired row counts as a change');
+    const row = db.prepare('SELECT model, cost FROM events WHERE key = ?').get(key);
+    assert.equal(row.model, 'claude-opus-5-5', 'the dashboard can tell it from Opus 5 again');
+    assert.equal(row.cost.toFixed(2), '24.00');
+  } finally {
+    fs.writeFileSync(file, before);
+    db.prepare('DELETE FROM events WHERE key = ?').run(key);
+    scanner.scan(db, { configDir: FIXTURE_CONFIG_DIR, account: 'default', full: true });
+  }
+});

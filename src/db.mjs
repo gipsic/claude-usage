@@ -116,6 +116,12 @@ function reprice(db) {
       const cost = costOf(r), weight = weightOf(r);
       if (cost !== r.cost || weight !== r.weight) upd.run(cost, weight, r.key);
     }
+    // Stored `model` is normalised at scan time too, so a row written before its
+    // model id was known carries the prefix it fell back to - no recomputation
+    // here can recover it. Clearing the scan bookkeeping makes the next ordinary
+    // scan re-read every transcript from byte 0 and upsert the derived columns
+    // (src/scanner.mjs). Events whose transcript is gone keep what they have.
+    db.exec('UPDATE files SET size = 0, mtime = 0, offset = 0');
     setMeta(db, 'pricing_version', PRICING_VERSION);
     db.exec('COMMIT');
   } catch (e) {
