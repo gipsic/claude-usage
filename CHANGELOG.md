@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.12] — 2026-10-07
+
+### Fixed
+- **One wedged poll stopped the tracker polling for good.** `pollLimits` holds an in-flight latch so two polls cannot overlap, and nothing ever cleared it if a poll failed to come back. On the reference machine on 2026-10-06 one did: scans carried on every 30 s, no error reached the log, `/api/health` kept answering - and `lastPoll` stood still for 10.4 hours while the dashboard served that old snapshot advanced by local transcripts, showing the 5-hour window at 87% against a real 31%. The only cure was `claude-usage restart`. A poll that has not returned within 10 minutes (or twice the poll interval, whichever is longer) is now abandoned, a replacement starts, and the abandoned one can neither rewind `lastPoll` nor release the latch its replacement holds when it finally returns.
+
+### Added
+- `doctor` prints **`last poll`** with its age, warns when limits have stopped being refreshed, and names how many stuck polls were abandoned since the tracker started. Scanning and polling are separate loops, so a dead poll used to be invisible in a report where everything else looked healthy. `/api/health` carries the same two fields (`pollInFlightSince`, `pollsAbandoned`).
+
 ## [1.6.11] — 2026-10-03
 
 ### Fixed

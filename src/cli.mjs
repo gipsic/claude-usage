@@ -416,6 +416,17 @@ const COMMANDS = {
       const up = live.startedAt ? dim(`  up ${fmtDur(Date.now() - live.startedAt)}`) : '';
       console.log(`  tracker               ${grn(`running ${live.version}`)}${up}`);
     }
+    // Scans and polls are separate loops: a wedged poll leaves the dashboard
+    // serving an ever-older snapshot while everything else looks healthy, which
+    // is invisible unless the age of the last poll is stated outright.
+    if (live && live.lastPoll) {
+      const age = Date.now() - live.lastPoll;
+      const behind = age > Math.max(15 * 60e3, rt.cfg.pollSeconds * 3000);
+      const stuck = live.pollInFlightSince ? dim(`  in flight for ${fmtDur(Date.now() - live.pollInFlightSince)}`) : '';
+      console.log(`  last poll             ${behind ? yel(`${fmtDur(age)} ago`) : grn(`${fmtDur(age)} ago`)}${stuck}`);
+      if (behind) console.log(`                        ${yel('limits are not being refreshed:')} claude-usage restart`);
+      if (live.pollsAbandoned) console.log(`                        ${dim(`${live.pollsAbandoned} stuck poll(s) abandoned since start`)}`);
+    }
     for (const a of rt.cfg.accounts) {
       console.log(`  account ${bold(a.id)}`);
       console.log(`    configDir           ${fs.existsSync(a.configDir) ? grn('ok') : red('missing')} ${a.configDir}`);

@@ -17,13 +17,23 @@ import * as A from './analytics.mjs';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
 const STARTED_AT = Date.now();
+/**
+ * A poll that has not come back within this long is abandoned and a fresh one is
+ * allowed to start. The endpoint fetch has its own 15 s timeout, so a poll that
+ * outlives this is wedged somewhere below it - and its in-flight latch would
+ * otherwise block every future poll until the tracker is restarted. One did
+ * exactly that on 2026-10-06: scans kept running, `lastPoll` stood still for
+ * 10.4 h, and the dashboard quietly served a 10-hour-old snapshot advanced by
+ * local transcripts (87 % against a real 31 %) with no error anywhere in the log.
+ */
+export const POLL_STUCK_MS = 10 * 60e3;
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
 export function createRuntime() {
   const db = open();
   const cfg = loadConfig();
-  const poll = { last: 0, lastResult: null, inFlight: false };
+  const poll = { last: 0, lastResult: null, inFlight: false, startedAt: 0, seq: 0, abandoned: 0 };
   return { db, cfg, poll };
 }
 
@@ -57,8 +67,15 @@ export async function pollLimits(rt, { force = false } = {}) {
   const now = Date.now();
   const minGap = Math.max(MIN_POLL_MS, rt.cfg.pollSeconds * 1000);
   if (!force && now - rt.poll.last < minGap) return { skipped: true, nextIn: minGap - (now - rt.poll.last) };
-  if (rt.poll.inFlight) return { skipped: true, reason: 'in-flight' };
+  if (rt.poll.inFlight) {
+    const running = now - rt.poll.startedAt;
+    if (running < Math.max(POLL_STUCK_MS, minGap * 2)) return { skipped: true, reason: 'in-flight' };
+    rt.poll.abandoned++;
+    console.error(`[poll] previous poll still running after ${Math.round(running / 60e3)} min - abandoned`);
+  }
+  const seq = ++rt.poll.seq;
   rt.poll.inFlight = true;
+  rt.poll.startedAt = now;
   const out = {};
   try {
     for (const acct of rt.cfg.accounts) {
@@ -89,11 +106,15 @@ export async function pollLimits(rt, { force = false } = {}) {
           : { ok: false, error: desktop?.error || 'unavailable' },
       };
     }
-    rt.poll.last = now;
-    rt.poll.lastResult = out;
-    setMeta(rt.db, 'lastPoll', now);
+    // An abandoned poll that comes back late must not rewind the clock or clear
+    // the latch the poll that replaced it is holding.
+    if (seq === rt.poll.seq) {
+      rt.poll.last = now;
+      rt.poll.lastResult = out;
+      setMeta(rt.db, 'lastPoll', now);
+    }
   } finally {
-    rt.poll.inFlight = false;
+    if (seq === rt.poll.seq) rt.poll.inFlight = false;
   }
   return out;
 }
@@ -168,7 +189,9 @@ export function createServer(rt) {
           // restarted, and this is how `doctor` notices.
           return json(res, { ok: true, version: VERSION, pid: process.pid, startedAt: STARTED_AT,
             dataDir: path.dirname(CONFIG_PATH),
-            lastScan: Number(getMeta(rt.db, 'lastScan', 0)), lastPoll: Number(getMeta(rt.db, 'lastPoll', 0)) });
+            lastScan: Number(getMeta(rt.db, 'lastScan', 0)), lastPoll: Number(getMeta(rt.db, 'lastPoll', 0)),
+            pollInFlightSince: rt.poll.inFlight ? rt.poll.startedAt : null,
+            pollsAbandoned: rt.poll.abandoned });
 
         case '/api/accounts': {
           if (req.method === 'POST') {

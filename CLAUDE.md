@@ -129,6 +129,16 @@ live do API-only windows go stale.
   version (it was hardcoded `1.0.0`), `doctor` compares it with the installed one,
   and `claude-usage restart` is the fix. Suspect this first when behaviour does
   not match the code you are reading.
+- **A poll that never returns used to stop polling for good.** `pollLimits` holds
+  `rt.poll.inFlight` so two polls cannot overlap; nothing cleared it if a poll
+  hung. On 2026-10-06 one did: scans ran every 30 s, `/api/health` answered, no
+  error reached either log, and `lastPoll` stood still for 10.4 h while the
+  dashboard served that snapshot advanced by local transcripts (5-hour window at
+  87% against a real 31%). Since 1.6.12 a poll still running after
+  `POLL_STUCK_MS` (10 min, or 2x the poll interval) is abandoned and a `seq`
+  guard stops the ghost rewinding `lastPoll` or clearing the new latch; `doctor`
+  prints `last poll` with its age. Symptom to recognise: `lastPoll` far behind
+  `lastScan` in `/api/health` while everything else looks healthy.
 - **Only one server per port.** `Claude Usage.app` (Login Item) must *kickstart*
   the agent, never spawn its own `serve` (it did, and the agent crash-looped 17×).
   `serve` exits 75 with a message on EADDRINUSE; launchd ThrottleInterval 60 s.
@@ -159,11 +169,12 @@ live do API-only windows go stale.
 
 ## Testing
 
-`npm test` — 74 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
+`npm test` — 80 tests, hermetic: `tempHome()` sets `CLAUDE_USAGE_HOME`,
 `CLAUDE_USAGE_NO_KEYCHAIN=1`, `CLAUDE_USAGE_OFFLINE=1`, a fake desktop-cache path,
 and copies `test/fixtures/` **per process** (a shared copy raced between
 `scanner.test` and `server.test`). `CLAUDE_USAGE_MOCK_USAGE='{"status":401}'` or
-`{"data":{...}}` stands in for the endpoint. **Gate every push on the exit code
+`{"data":{...}}` stands in for the endpoint (`delayMs` on the mock holds the
+answer back, which is how a wedged poll is staged). **Gate every push on the exit code
 of `npm test` (run 3×)** — an `&&` chain that only greps the summary once let a
 red commit onto main. GitHub Actions YAML: never put `${{ }}` inside `{ }` flow
 mappings (broke parsing → 0 jobs, no logs). CI runs macos-latest, ubuntu-latest **and windows-latest**
