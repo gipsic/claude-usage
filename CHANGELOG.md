@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.6.13] — 2026-11-08
+
+### Added
+- **Even pace as a number, not just a marker.** Every limit window now states how much of it has elapsed next to how much of the limit is spent, and the gap between them in points - `62% used vs 48% elapsed · +14 pts ahead of pace`, coloured when you are ahead of an even spend. Until now that comparison existed only as a dot on a 9-pixel bar, where a ten-point lead and a two-point one look the same. The dashboard cards carry the line under the track, `claude-usage now` / `watch` carry `pace 48% (+14 ahead)` in each window's detail line, and the menu-bar plugin shows the same under each window's reset. `/api/summary` carries the two new fields (`pace`, `paceDelta`); a window with no fixed reset (the trailing 7 days) has no pace and reports `null`.
+
 ## [1.6.12] — 2026-10-07
 
 ### Fixed

@@ -67,14 +67,30 @@ const soonAt = (ts, now = Date.now()) => {
  * One window: headline percentage, a track whose fill is current utilization,
  * and a pace marker at the point you would be if you spent the window evenly.
  * Fill behind the marker means you are under pace; ahead of it means you are
- * on course to run out early.
+ * on course to run out early. The line under the track says the same thing in
+ * numbers (used % vs elapsed %, and the gap in points), because a few points
+ * of difference cannot be read off a 9-pixel bar.
  */
 function limitCard(s) {
   const known = s.utilization != null;
   const pct = known ? Math.max(0, Math.min(100, s.utilization)) : 0;
   const tone = !known ? '' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
-  const elapsed = s.resetsAt && s.start ? (Date.now() - s.start) / (s.resetsAt - s.start) : null;
-  const pace = elapsed == null ? null : Math.max(0, Math.min(100, elapsed * 100));
+  const pace = s.pace ?? null;
+  // The marker on the track only shows where even pace sits; the line below it
+  // puts the same comparison in numbers, since a few points of difference are
+  // hard to read off a 9-pixel bar.
+  const delta = known && pace != null ? pct - pace : null;
+  const paceLine = pace == null ? '' : (() => {
+    const p = Math.round(pace);
+    const nums = `<span class="nums">${known ? `${Math.round(pct)}% used vs ` : ''}${p}% elapsed</span>`;
+    if (delta == null) return `<div class="limit-pace"><i></i><b>even pace</b> ${nums}</div>`;
+    const d = Math.round(delta);
+    const side = d >= 1 ? 'ahead' : d <= -1 ? 'behind' : 'even';
+    const word = side === 'ahead' ? `+${d} pts ahead of pace`
+      : side === 'behind' ? `${Math.abs(d)} pts behind pace` : 'right on pace';
+    return `<div class="limit-pace ${side}" title="${Math.round(pct)}% of the limit used against ${p}% of the window elapsed. Ahead of pace means you are on course to run out before the reset.">`
+      + `<i></i><b>${word}</b> ${nums}</div>`;
+  })();
 
   const ago = s.snapshotAge == null ? '' : s.snapshotAge < 90e3 ? `${Math.round(s.snapshotAge / 1000)}s` : s.snapshotAge < 5400e3 ? `${Math.round(s.snapshotAge / 60000)}m` : `${(s.snapshotAge / 3600e3).toFixed(1)}h`;
   if (s.idle) {
@@ -136,6 +152,7 @@ function limitCard(s) {
         <div class="fill" style="width:${known ? pct : 0}%"></div>
         ${pace == null ? '' : `<div class="pace" style="left:${pace}%" title="even-pace position"></div>`}
       </div>
+      ${paceLine}
       <div class="limit-reset">${resetLine}</div>
       <div class="limit-meta">${meta.join('<span class="sep">·</span>')}</div>
     </article>`;

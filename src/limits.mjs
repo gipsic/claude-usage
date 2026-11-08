@@ -560,6 +560,14 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
     if (idle) { resetsAt = null; resetSource = null; }
     const elapsed = Math.max(1, now - start);
     const remainingMs = resetsAt == null ? null : Math.max(0, resetsAt - now);
+    // Even pace: the share of the window already elapsed, as a percentage. It
+    // is what utilization would read if the window were spent at a constant
+    // rate, so `utilization - pace` says in points whether you are ahead of an
+    // even spend (and on course to run out early) or behind it. A window with
+    // no fixed reset (the trailing 7 days) has no pace - nothing to be even
+    // against.
+    const pace = resetsAt == null || start == null || resetsAt <= start
+      ? null : Math.max(0, Math.min(100, ((now - start) / (resetsAt - start)) * 100));
     // Burn/projection are meaningless for a window that has not started.
     if (idle) {
       state[win] = { window: win, label: def.label, apiOnly: !!def.apiOnly, scoped: !!def.scoped, families: def.families, start: null, resetsAt: null,
@@ -567,6 +575,7 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
         utilization: 0, source, capacity, snapshotAt: snap?.ts ?? null,
         snapshotUtilization: snap?.utilization ?? null, local, coverage: cal[win]?.coverage ?? null,
         burnPerHour: 0, costPerHour: 0, utilPerHour: 0, projectedUtilization: 0, exhaustAt: null,
+        pace: null, paceDelta: null,
         remainingWeight: capacity };
       continue;
     }
@@ -599,6 +608,7 @@ export function limitState(db, { account = 'default', now = Date.now() } = {}) {
       local, burnPerHour, costPerHour, utilPerHour,
       projectedUtilization: projected == null ? null : Math.min(999, projected),
       exhaustAt,
+      pace, paceDelta: pace == null || utilization == null ? null : utilization - pace,
       remainingWeight: capacity && utilization != null
         ? Math.max(0, capacity * (100 - utilization) / 100) : null,
     };

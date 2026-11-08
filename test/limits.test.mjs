@@ -209,6 +209,22 @@ test('a burn rate is not read off the first minutes of a window', () => {
   assert.ok(w.utilPerHour < perHourIfNaive / 5, `rate spread over 30 min, not 5 (${w.utilPerHour.toFixed(1)}%/h vs naive ${perHourIfNaive.toFixed(1)})`);
 });
 
+test('pace is the share of the window elapsed, and paceDelta the lead over it', () => {
+  const db = DB.open();
+  db.exec('DELETE FROM events; DELETE FROM limit_snapshots; DELETE FROM limit_events; DELETE FROM meta');
+  const now = Date.parse('2026-09-20T04:00:00Z');
+  const resets = now + 3 * HOUR;                      // 2 of 5 hours elapsed -> 40%
+  db.prepare("INSERT INTO limit_snapshots(ts,account,window,utilization,resets_at) VALUES(?,'default','five_hour',70,?)").run(now - 60e3, resets);
+  const w = L.limitState(db, { account: 'default', now }).five_hour;
+  assert.ok(Math.abs(w.pace - 40) < 0.5, `pace ${w.pace}`);
+  assert.ok(Math.abs(w.paceDelta - 30) < 0.5, `paceDelta ${w.paceDelta}`);
+
+  // The trailing-7-days window has no fixed reset, so there is nothing to be
+  // even against and no pace to report.
+  const rolling = L.limitState(db, { account: 'default', now }).seven_day;
+  if (rolling.resetsAt == null) assert.equal(rolling.pace, null);
+});
+
 test('limitState labels sources honestly', () => {
   const db = DB.open();
   const st = L.limitState(db, { account: 'default' });

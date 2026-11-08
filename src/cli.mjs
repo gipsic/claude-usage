@@ -24,6 +24,18 @@ const c = (n) => (s) => (tty ? `${ESC}[${n}m${s}${ESC}[0m` : String(s));
 const bold = c(1), dim = c(2), red = c(31), grn = c(32), yel = c(33), blu = c(36), mag = c(35);
 
 const money = (n) => `$${(n || 0).toFixed(2)}`;
+/**
+ * Even pace in words: how much of the window has elapsed, and by how many
+ * points utilization is ahead of (or behind) spending it evenly. The bar only
+ * shows where the marker sits; this says it in numbers.
+ */
+const paceText = (s) => {
+  if (s?.pace == null) return null;
+  const p = `pace ${Math.round(s.pace)}%`;
+  if (s.paceDelta == null) return p;
+  const d = Math.round(s.paceDelta);
+  return `${p} (${d >= 1 ? `+${d} ahead` : d <= -1 ? `${d} behind` : 'even'})`;
+};
 const compact = (n) => {
   n = Number(n) || 0;
   if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
@@ -93,6 +105,8 @@ function renderNow(rt, account) {
       ? 'trailing 7 days'
       : `resets ${clock(s.resetsAt)} (${dur(s.remainingMs)})`];
     if (!s.apiOnly) bits.push(`${money(s.local.cost)} · ${compact(s.local.tokens)} tok`);
+    const pace = paceText(s);
+    if (pace) bits.push(pace);
     if (s.utilPerHour != null && s.utilPerHour > 0.05) bits.push(`burn ${s.utilPerHour.toFixed(1)}%/h`);
     if (s.exhaustAt) bits.push(red(`empty ~${clock(s.exhaustAt)}`));
     else if (s.projectedUtilization != null) bits.push(`proj ${Math.round(s.projectedUtilization)}% at reset`);
@@ -162,6 +176,10 @@ function swiftbar(m, { port, account, accountLabel, multi }) {
     L.push(`${(p == null ? 'no data' : p + '%').padEnd(8)}${track(p)}${tone(p)} | ${mono(12)}`);
     L.push(`${s.rolling && s.resetsAt == null ? 'Trailing 7 days'
       : `Resets in ${dur(s.remainingMs)} (${at(s.resetsAt)})`} | ${mono(11)} color=#8a857d`);
+    const pace = paceText(s);
+    if (pace) {
+      L.push(`${pace} | ${mono(11)} color=${s.paceDelta != null && s.paceDelta >= 1 ? '#d99a2b' : '#8a857d'}`);
+    }
     L.push(`${money(s.local.cost)} · ${compact(s.local.tokens)} tokens` +
       (s.exhaustAt ? `  · empty ~${clock(s.exhaustAt)}` : '') + ` | ${mono(11)} color=#8a857d`);
     L.push('---');

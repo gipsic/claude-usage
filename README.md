@@ -184,7 +184,10 @@ urgent.
 per-model weekly window your plan reports (Fable on Max), each with utilization
 %, exact reset time and countdown,
 burn rate in %/hour, a projection of where you land at reset, and an estimated
-time-of-exhaustion when you're on pace to run out early.
+time-of-exhaustion when you're on pace to run out early. Each window also states
+its **even pace in numbers** — how much of the window has elapsed, and by how
+many points usage is ahead of or behind spending it evenly — not only as the
+marker on the bar.
 
 **History** — every request since your first Claude Code session, broken down by
 model, project, git branch, effort level, and session. Charts over 12h / 24h /

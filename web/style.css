@@ -365,6 +365,20 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   border-radius: 50%; border: 1.2px solid var(--text-faint);
   border-top-color: transparent; border-right-color: transparent;
 }
+.limit-pace {
+  margin-top: 8px; font: 11.5px/1.5 var(--mono); color: var(--text-dim);
+  display: flex; gap: 5px; align-items: center; flex-wrap: wrap;
+}
+.limit-pace i {
+  width: 9px; height: 9px; border-radius: 50%; flex: none;
+  background: var(--panel); border: 1.5px solid color-mix(in srgb, var(--tone) 55%, var(--border));
+}
+.limit-pace .nums { color: var(--text-faint); }
+.limit-pace b { font-weight: 600; color: var(--text-dim); }
+.limit-pace.ahead b { color: var(--warn); }
+.limit-pace.behind b { color: var(--ok); }
+.limit.danger .limit-pace.ahead b { color: var(--danger); }
+
 .limit-reset { margin-top: 9px; font-size: 12px; color: var(--text-dim); }
 .limit-reset .muted { color: var(--text-faint); }
 .limit-meta {
